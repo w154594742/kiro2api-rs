@@ -76,6 +76,8 @@ pub async fn post_messages(
     State(state): State<AppState>,
     JsonExtractor(payload): JsonExtractor<MessagesRequest>,
 ) -> Response {
+    let start_time = std::time::Instant::now();
+    
     tracing::info!(
         model = %payload.model,
         max_tokens = %payload.max_tokens,
@@ -85,9 +87,16 @@ pub async fn post_messages(
     );
 
     // 获取 provider：优先从账号池获取，否则使用单账号模式
-    let (provider, account_id, pool_ref) = if let Some(pool) = &state.account_pool {
+    let (provider, account_id, account_name, pool_ref) = if let Some(pool) = &state.account_pool {
         match pool.select_account().await {
             Some((id, tm)) => {
+                // 获取账号名称
+                let acc_name = pool.list_accounts().await
+                    .iter()
+                    .find(|a| a.id == id)
+                    .map(|a| a.name.clone())
+                    .unwrap_or_else(|| "未知账号".to_string());
+                
                 // 从 TokenManager 创建临时 KiroProvider
                 let tm_guard = tm.lock().await;
                 let provider = crate::kiro::provider::KiroProvider::with_proxy(
@@ -99,7 +108,7 @@ pub async fn post_messages(
                     None,
                 );
                 drop(tm_guard);
-                (std::sync::Arc::new(tokio::sync::Mutex::new(provider)), Some(id), Some(pool.clone()))
+                (std::sync::Arc::new(tokio::sync::Mutex::new(provider)), Some(id), acc_name, Some(pool.clone()))
             }
             None => {
                 tracing::error!("账号池中没有可用账号");
@@ -116,7 +125,7 @@ pub async fn post_messages(
     } else {
         // 单账号模式
         match &state.kiro_provider {
-            Some(p) => (p.clone(), None, None),
+            Some(p) => (p.clone(), None, "单账号模式".to_string(), None),
             None => {
                 tracing::error!("KiroProvider 未配置");
                 return (
@@ -197,10 +206,10 @@ pub async fn post_messages(
 
     if payload.stream {
         // 流式响应
-        handle_stream_request(provider, &request_body, &payload.model, input_tokens, thinking_enabled, account_id, pool_ref).await
+        handle_stream_request(provider, &request_body, &payload.model, input_tokens, thinking_enabled, account_id, account_name, pool_ref, start_time).await
     } else {
         // 非流式响应
-        handle_non_stream_request(provider, &request_body, &payload.model, input_tokens, account_id, pool_ref).await
+        handle_non_stream_request(provider, &request_body, &payload.model, input_tokens, account_id, account_name, pool_ref, start_time).await
     }
 }
 
@@ -212,7 +221,9 @@ async fn handle_stream_request(
     input_tokens: i32,
     thinking_enabled: bool,
     account_id: Option<String>,
+    account_name: String,
     pool: Option<std::sync::Arc<crate::pool::AccountPool>>,
+    start_time: std::time::Instant,
 ) -> Response {
     // 调用 Kiro API
     let response = {
@@ -235,6 +246,21 @@ async fn handle_stream_request(
                         pool.record_error(id, is_rate_limit).await;
                         tracing::warn!("账号 {} 记录错误，限流: {}", id, is_rate_limit);
                     }
+                    
+                    // 记录失败的请求
+                    let log = crate::pool::RequestLog {
+                        id: uuid::Uuid::new_v4().to_string(),
+                        account_id: id.clone(),
+                        account_name: account_name.clone(),
+                        model: model.to_string(),
+                        input_tokens,
+                        output_tokens: 0,
+                        success: false,
+                        error: Some(error_msg.clone()),
+                        timestamp: chrono::Utc::now(),
+                        duration_ms: start_time.elapsed().as_millis() as u64,
+                    };
+                    pool.add_request_log(log).await;
                 }
                 
                 return (
@@ -248,6 +274,23 @@ async fn handle_stream_request(
             }
         }
     };
+
+    // 记录成功的流式请求（输出 tokens 暂时设为 0，因为流式无法准确统计）
+    if let (Some(id), Some(pool)) = (&account_id, &pool) {
+        let log = crate::pool::RequestLog {
+            id: uuid::Uuid::new_v4().to_string(),
+            account_id: id.clone(),
+            account_name,
+            model: model.to_string(),
+            input_tokens,
+            output_tokens: 0, // 流式请求无法准确统计
+            success: true,
+            error: None,
+            timestamp: chrono::Utc::now(),
+            duration_ms: start_time.elapsed().as_millis() as u64,
+        };
+        pool.add_request_log(log).await;
+    }
 
     // 创建流处理上下文
     let mut ctx = StreamContext::new_with_thinking(model, input_tokens, thinking_enabled);
@@ -378,7 +421,9 @@ async fn handle_non_stream_request(
     model: &str,
     input_tokens: i32,
     account_id: Option<String>,
+    account_name: String,
     pool: Option<std::sync::Arc<crate::pool::AccountPool>>,
+    start_time: std::time::Instant,
 ) -> Response {
     // 调用 Kiro API
     let response = {
@@ -401,6 +446,21 @@ async fn handle_non_stream_request(
                         pool.record_error(id, is_rate_limit).await;
                         tracing::warn!("账号 {} 记录错误，限流: {}", id, is_rate_limit);
                     }
+                    
+                    // 记录失败的请求
+                    let log = crate::pool::RequestLog {
+                        id: uuid::Uuid::new_v4().to_string(),
+                        account_id: id.clone(),
+                        account_name: account_name.clone(),
+                        model: model.to_string(),
+                        input_tokens,
+                        output_tokens: 0,
+                        success: false,
+                        error: Some(error_msg.clone()),
+                        timestamp: chrono::Utc::now(),
+                        duration_ms: start_time.elapsed().as_millis() as u64,
+                    };
+                    pool.add_request_log(log).await;
                 }
                 
                 return (
@@ -546,6 +606,23 @@ async fn handle_non_stream_request(
             "output_tokens": output_tokens
         }
     });
+
+    // 记录成功的请求
+    if let (Some(id), Some(pool)) = (&account_id, &pool) {
+        let log = crate::pool::RequestLog {
+            id: uuid::Uuid::new_v4().to_string(),
+            account_id: id.clone(),
+            account_name,
+            model: model.to_string(),
+            input_tokens: final_input_tokens,
+            output_tokens,
+            success: true,
+            error: None,
+            timestamp: chrono::Utc::now(),
+            duration_ms: start_time.elapsed().as_millis() as u64,
+        };
+        pool.add_request_log(log).await;
+    }
 
     (StatusCode::OK, Json(response_body)).into_response()
 }

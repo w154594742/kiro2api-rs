@@ -2,8 +2,9 @@
 
 use axum::{
     extract::State,
-    http::StatusCode,
-    response::{Html, IntoResponse, Json},
+    http::{Request, StatusCode},
+    middleware::{self, Next},
+    response::{Html, IntoResponse, Json, Response},
     routing::{get, post, delete},
     Router,
 };
@@ -23,10 +24,44 @@ pub struct UiState {
     pub api_key: String,
 }
 
+/// 认证中间件
+async fn auth_middleware(
+    State(state): State<UiState>,
+    request: Request<axum::body::Body>,
+    next: Next,
+) -> Response {
+    // 检查 Authorization header 或 query parameter
+    let auth_header = request
+        .headers()
+        .get("Authorization")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.trim_start_matches("Bearer ").to_string());
+    
+    let query_key = request
+        .uri()
+        .query()
+        .and_then(|q| {
+            q.split('&')
+                .find(|p| p.starts_with("key="))
+                .map(|p| p.trim_start_matches("key=").to_string())
+        });
+
+    let provided_key = auth_header.or(query_key);
+
+    match provided_key {
+        Some(key) if key == state.api_key => next.run(request).await,
+        _ => (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error": "需要认证，请提供 API 密钥"})),
+        )
+            .into_response(),
+    }
+}
+
 /// 创建 UI 路由
 pub fn create_ui_router(state: UiState) -> Router {
-    Router::new()
-        .route("/", get(index_page))
+    // 需要认证的 API 路由
+    let protected_api = Router::new()
         .route("/api/status", get(get_status))
         .route("/api/accounts", get(list_accounts))
         .route("/api/accounts", post(add_account))
@@ -34,9 +69,20 @@ pub fn create_ui_router(state: UiState) -> Router {
         .route("/api/accounts/{id}", delete(remove_account))
         .route("/api/accounts/{id}/enable", post(enable_account))
         .route("/api/accounts/{id}/disable", post(disable_account))
+        .route("/api/accounts/{id}/usage", get(get_account_usage))
+        .route("/api/accounts/{id}/usage/refresh", post(refresh_account_usage))
         .route("/api/strategy", get(get_strategy))
         .route("/api/strategy", post(set_strategy))
-        .with_state(state)
+        .route("/api/logs", get(get_request_logs))
+        .route("/api/logs/stats", get(get_request_stats))
+        .route("/api/usage/refresh", post(refresh_all_usage))
+        .layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
+        .with_state(state.clone());
+
+    // 公开路由（登录页面）
+    Router::new()
+        .route("/", get(index_page))
+        .merge(protected_api)
 }
 
 /// 首页
@@ -274,4 +320,61 @@ async fn set_strategy(
     };
     state.pool.set_strategy(strategy).await;
     (StatusCode::OK, Json(serde_json::json!({"success": true})))
+}
+
+/// 获取请求记录
+async fn get_request_logs(State(state): State<UiState>) -> impl IntoResponse {
+    let logs = state.pool.get_recent_logs(100).await;
+    Json(logs)
+}
+
+/// 获取请求统计
+async fn get_request_stats(State(state): State<UiState>) -> impl IntoResponse {
+    let stats = state.pool.get_request_stats().await;
+    Json(stats)
+}
+
+/// 获取账号配额
+async fn get_account_usage(
+    State(state): State<UiState>,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> impl IntoResponse {
+    match state.pool.get_account_usage(&id).await {
+        Some(usage) => (StatusCode::OK, Json(serde_json::json!(usage))),
+        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "未找到配额信息，请先刷新"}))),
+    }
+}
+
+/// 刷新账号配额
+async fn refresh_account_usage(
+    State(state): State<UiState>,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> impl IntoResponse {
+    match state.pool.refresh_account_usage(&id).await {
+        Ok(usage) => (StatusCode::OK, Json(serde_json::json!(usage))),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))),
+    }
+}
+
+/// 刷新所有账号配额
+async fn refresh_all_usage(State(state): State<UiState>) -> impl IntoResponse {
+    let results = state.pool.refresh_all_usage().await;
+    let response: Vec<serde_json::Value> = results
+        .into_iter()
+        .map(|(id, result)| {
+            match result {
+                Ok(usage) => serde_json::json!({
+                    "id": id,
+                    "success": true,
+                    "usage": usage
+                }),
+                Err(e) => serde_json::json!({
+                    "id": id,
+                    "success": false,
+                    "error": e
+                }),
+            }
+        })
+        .collect();
+    Json(response)
 }

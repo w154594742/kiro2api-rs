@@ -5,7 +5,9 @@
 pub mod account;
 pub mod manager;
 pub mod strategy;
+pub mod usage;
 
 pub use account::Account;
 pub use manager::{AccountPool, PoolStats};
 pub use strategy::SelectionStrategy;
+pub use usage::{RequestLog, RequestLogger, RequestStats, UsageLimits, check_usage_limits};

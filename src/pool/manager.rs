@@ -11,9 +11,14 @@ use crate::model::config::Config;
 
 use super::account::{Account, AccountStatus};
 use super::strategy::SelectionStrategy;
+use super::usage::{RequestLog, RequestLogger, RequestStats, UsageLimits};
 
 /// 账号存储文件名
 const ACCOUNTS_FILE: &str = "accounts.json";
+/// 请求记录存储文件名
+const LOGS_FILE: &str = "request_logs.json";
+/// 配额缓存存储文件名
+const USAGE_CACHE_FILE: &str = "usage_cache.json";
 
 /// 账号池管理器
 pub struct AccountPool {
@@ -31,6 +36,10 @@ pub struct AccountPool {
     proxy: Option<ProxyConfig>,
     /// 数据存储目录
     data_dir: Option<PathBuf>,
+    /// 请求记录器
+    request_logger: RwLock<RequestLogger>,
+    /// 账号配额缓存
+    usage_cache: RwLock<HashMap<String, UsageLimits>>,
 }
 
 impl AccountPool {
@@ -44,6 +53,8 @@ impl AccountPool {
             config,
             proxy,
             data_dir: None,
+            request_logger: RwLock::new(RequestLogger::default()),
+            usage_cache: RwLock::new(HashMap::new()),
         }
     }
 
@@ -57,6 +68,8 @@ impl AccountPool {
             config,
             proxy,
             data_dir: Some(data_dir),
+            request_logger: RwLock::new(RequestLogger::default()),
+            usage_cache: RwLock::new(HashMap::new()),
         }
     }
 
@@ -295,6 +308,152 @@ impl AccountPool {
             total_requests,
             total_errors,
         }
+    }
+
+    /// 添加请求记录
+    pub async fn add_request_log(&self, log: RequestLog) {
+        let mut logger = self.request_logger.write().await;
+        logger.add(log);
+        
+        // 异步保存到文件（不阻塞）
+        if let Some(data_dir) = &self.data_dir {
+            let logs = logger.get_all();
+            let file_path = data_dir.join(LOGS_FILE);
+            tokio::spawn(async move {
+                if let Ok(content) = serde_json::to_string(&logs) {
+                    let _ = tokio::fs::write(&file_path, content).await;
+                }
+            });
+        }
+    }
+
+    /// 获取最近的请求记录
+    pub async fn get_recent_logs(&self, n: usize) -> Vec<RequestLog> {
+        let logger = self.request_logger.read().await;
+        logger.get_recent(n)
+    }
+
+    /// 获取请求统计
+    pub async fn get_request_stats(&self) -> RequestStats {
+        let logger = self.request_logger.read().await;
+        logger.get_stats()
+    }
+
+    /// 从文件加载请求记录
+    pub async fn load_logs_from_file(&self) -> anyhow::Result<usize> {
+        let Some(data_dir) = &self.data_dir else {
+            return Ok(0);
+        };
+
+        let file_path = data_dir.join(LOGS_FILE);
+        if !file_path.exists() {
+            return Ok(0);
+        }
+
+        let content = tokio::fs::read_to_string(&file_path).await?;
+        let mut logs: Vec<RequestLog> = serde_json::from_str(&content)?;
+        
+        // 只保留最新的 1000 条（如果超过的话）
+        if logs.len() > 1000 {
+            logs = logs.split_off(logs.len() - 1000);
+        }
+        
+        let count = logs.len();
+        let mut logger = self.request_logger.write().await;
+        for log in logs {
+            logger.add(log);
+        }
+
+        tracing::info!("从文件加载了 {} 条请求记录", count);
+        Ok(count)
+    }
+
+    /// 获取账号配额（带缓存）
+    pub async fn get_account_usage(&self, id: &str) -> Option<UsageLimits> {
+        let cache = self.usage_cache.read().await;
+        cache.get(id).cloned()
+    }
+
+    /// 刷新账号配额
+    pub async fn refresh_account_usage(&self, id: &str) -> anyhow::Result<UsageLimits> {
+        // 获取 TokenManager
+        let managers = self.token_managers.read().await;
+        let tm = managers.get(id).ok_or_else(|| anyhow::anyhow!("账号不存在"))?;
+        
+        // 获取 access_token
+        let mut tm_guard = tm.lock().await;
+        let token = tm_guard.ensure_valid_token().await?;
+        drop(tm_guard);
+        drop(managers);
+        
+        // 调用 API 获取配额
+        let usage = super::usage::check_usage_limits(&token).await?;
+        
+        // 更新缓存
+        let mut cache = self.usage_cache.write().await;
+        cache.insert(id.to_string(), usage.clone());
+        drop(cache);
+        
+        // 保存到文件
+        self.save_usage_cache().await;
+        
+        Ok(usage)
+    }
+
+    /// 保存配额缓存到文件
+    async fn save_usage_cache(&self) {
+        if let Some(data_dir) = &self.data_dir {
+            let cache = self.usage_cache.read().await;
+            let file_path = data_dir.join(USAGE_CACHE_FILE);
+            if let Ok(content) = serde_json::to_string(&*cache) {
+                let _ = tokio::fs::write(&file_path, content).await;
+            }
+        }
+    }
+
+    /// 从文件加载配额缓存
+    pub async fn load_usage_cache(&self) -> anyhow::Result<usize> {
+        let Some(data_dir) = &self.data_dir else {
+            return Ok(0);
+        };
+
+        let file_path = data_dir.join(USAGE_CACHE_FILE);
+        if !file_path.exists() {
+            return Ok(0);
+        }
+
+        let content = tokio::fs::read_to_string(&file_path).await?;
+        let loaded: HashMap<String, UsageLimits> = serde_json::from_str(&content)?;
+        
+        let count = loaded.len();
+        let mut cache = self.usage_cache.write().await;
+        *cache = loaded;
+
+        tracing::info!("从文件加载了 {} 个配额缓存", count);
+        Ok(count)
+    }
+
+    /// 刷新所有账号配额
+    pub async fn refresh_all_usage(&self) -> Vec<(String, Result<UsageLimits, String>)> {
+        let accounts = self.accounts.read().await;
+        let ids: Vec<String> = accounts.keys().cloned().collect();
+        drop(accounts);
+
+        let mut results = Vec::new();
+        for id in ids {
+            let result = match self.refresh_account_usage(&id).await {
+                Ok(usage) => Ok(usage),
+                Err(e) => Err(e.to_string()),
+            };
+            results.push((id, result));
+        }
+        results
+    }
+
+    /// 获取所有账号配额缓存
+    pub async fn get_all_usage(&self) -> HashMap<String, UsageLimits> {
+        let cache = self.usage_cache.read().await;
+        cache.clone()
     }
 }
 

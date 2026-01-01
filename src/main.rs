@@ -148,6 +148,16 @@ async fn create_pool_mode_app(
         tracing::warn!("加载账号文件失败: {}", e);
     }
 
+    // 从文件加载请求记录
+    if let Err(e) = pool.load_logs_from_file().await {
+        tracing::warn!("加载请求记录失败: {}", e);
+    }
+
+    // 从文件加载配额缓存
+    if let Err(e) = pool.load_usage_cache().await {
+        tracing::warn!("加载配额缓存失败: {}", e);
+    }
+
     // 尝试从环境变量加载初始账号（如果池中没有账号）
     if pool.get_stats().await.total == 0 {
         if let Some(creds) = KiroCredentials::from_env() {
