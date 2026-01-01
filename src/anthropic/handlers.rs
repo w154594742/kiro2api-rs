@@ -85,7 +85,7 @@ pub async fn post_messages(
     );
 
     // 获取 provider：优先从账号池获取，否则使用单账号模式
-    let (provider, account_id) = if let Some(pool) = &state.account_pool {
+    let (provider, account_id, pool_ref) = if let Some(pool) = &state.account_pool {
         match pool.select_account().await {
             Some((id, tm)) => {
                 // 从 TokenManager 创建临时 KiroProvider
@@ -99,7 +99,7 @@ pub async fn post_messages(
                     None,
                 );
                 drop(tm_guard);
-                (std::sync::Arc::new(tokio::sync::Mutex::new(provider)), Some(id))
+                (std::sync::Arc::new(tokio::sync::Mutex::new(provider)), Some(id), Some(pool.clone()))
             }
             None => {
                 tracing::error!("账号池中没有可用账号");
@@ -116,7 +116,7 @@ pub async fn post_messages(
     } else {
         // 单账号模式
         match &state.kiro_provider {
-            Some(p) => (p.clone(), None),
+            Some(p) => (p.clone(), None, None),
             None => {
                 tracing::error!("KiroProvider 未配置");
                 return (
@@ -197,10 +197,10 @@ pub async fn post_messages(
 
     if payload.stream {
         // 流式响应
-        handle_stream_request(provider, &request_body, &payload.model, input_tokens, thinking_enabled).await
+        handle_stream_request(provider, &request_body, &payload.model, input_tokens, thinking_enabled, account_id, pool_ref).await
     } else {
         // 非流式响应
-        handle_non_stream_request(provider, &request_body, &payload.model, input_tokens).await
+        handle_non_stream_request(provider, &request_body, &payload.model, input_tokens, account_id, pool_ref).await
     }
 }
 
@@ -211,6 +211,8 @@ async fn handle_stream_request(
     model: &str,
     input_tokens: i32,
     thinking_enabled: bool,
+    account_id: Option<String>,
+    pool: Option<std::sync::Arc<crate::pool::AccountPool>>,
 ) -> Response {
     // 调用 Kiro API
     let response = {
@@ -218,7 +220,23 @@ async fn handle_stream_request(
         match provider_guard.call_api_stream(request_body).await {
             Ok(resp) => resp,
             Err(e) => {
-                tracing::error!("Kiro API 调用失败: {}", e);
+                let error_msg = e.to_string();
+                tracing::error!("Kiro API 调用失败: {}", error_msg);
+                
+                // 记录错误到账号池
+                if let (Some(id), Some(pool)) = (&account_id, &pool) {
+                    let is_rate_limit = error_msg.contains("429") || error_msg.contains("rate");
+                    let is_suspended = error_msg.contains("suspended") || error_msg.contains("403");
+                    
+                    if is_suspended {
+                        pool.mark_invalid(id).await;
+                        tracing::warn!("账号 {} 已被标记为失效（暂停）", id);
+                    } else {
+                        pool.record_error(id, is_rate_limit).await;
+                        tracing::warn!("账号 {} 记录错误，限流: {}", id, is_rate_limit);
+                    }
+                }
+                
                 return (
                     StatusCode::BAD_GATEWAY,
                     Json(ErrorResponse::new(
@@ -359,6 +377,8 @@ async fn handle_non_stream_request(
     request_body: &str,
     model: &str,
     input_tokens: i32,
+    account_id: Option<String>,
+    pool: Option<std::sync::Arc<crate::pool::AccountPool>>,
 ) -> Response {
     // 调用 Kiro API
     let response = {
@@ -366,7 +386,23 @@ async fn handle_non_stream_request(
         match provider_guard.call_api(request_body).await {
             Ok(resp) => resp,
             Err(e) => {
-                tracing::error!("Kiro API 调用失败: {}", e);
+                let error_msg = e.to_string();
+                tracing::error!("Kiro API 调用失败: {}", error_msg);
+                
+                // 记录错误到账号池
+                if let (Some(id), Some(pool)) = (&account_id, &pool) {
+                    let is_rate_limit = error_msg.contains("429") || error_msg.contains("rate");
+                    let is_suspended = error_msg.contains("suspended") || error_msg.contains("403");
+                    
+                    if is_suspended {
+                        pool.mark_invalid(id).await;
+                        tracing::warn!("账号 {} 已被标记为失效（暂停）", id);
+                    } else {
+                        pool.record_error(id, is_rate_limit).await;
+                        tracing::warn!("账号 {} 记录错误，限流: {}", id, is_rate_limit);
+                    }
+                }
+                
                 return (
                     StatusCode::BAD_GATEWAY,
                     Json(ErrorResponse::new(

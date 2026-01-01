@@ -231,9 +231,9 @@ async fn enable_account(
     axum::extract::Path(id): axum::extract::Path<String>,
 ) -> impl IntoResponse {
     if state.pool.enable_account(&id).await {
-        StatusCode::OK
+        Json(serde_json::json!({"success": true}))
     } else {
-        StatusCode::NOT_FOUND
+        Json(serde_json::json!({"success": false, "error": "账号不存在"}))
     }
 }
 
@@ -243,9 +243,9 @@ async fn disable_account(
     axum::extract::Path(id): axum::extract::Path<String>,
 ) -> impl IntoResponse {
     if state.pool.disable_account(&id).await {
-        StatusCode::OK
+        Json(serde_json::json!({"success": true}))
     } else {
-        StatusCode::NOT_FOUND
+        Json(serde_json::json!({"success": false, "error": "账号不存在"}))
     }
 }
 

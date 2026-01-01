@@ -246,6 +246,34 @@ impl AccountPool {
         }
     }
 
+    /// 记录账号错误
+    pub async fn record_error(&self, id: &str, is_rate_limit: bool) {
+        let mut accounts = self.accounts.write().await;
+        if let Some(account) = accounts.get_mut(id) {
+            account.record_error(is_rate_limit);
+            tracing::info!(
+                "账号 {} 记录错误，限流: {}，当前错误数: {}，状态: {:?}",
+                id, is_rate_limit, account.error_count, account.status
+            );
+            drop(accounts);
+            let _ = self.save_to_file().await;
+        }
+    }
+
+    /// 标记账号为失效
+    pub async fn mark_invalid(&self, id: &str) {
+        let mut accounts = self.accounts.write().await;
+        if let Some(account) = accounts.get_mut(id) {
+            account.mark_invalid();
+            tracing::warn!(
+                "账号 {} 已标记为失效，错误数: {}",
+                id, account.error_count
+            );
+            drop(accounts);
+            let _ = self.save_to_file().await;
+        }
+    }
+
     /// 获取统计信息
     pub async fn get_stats(&self) -> PoolStats {
         let accounts = self.accounts.read().await;
