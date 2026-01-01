@@ -981,10 +981,18 @@
         async function loadUsageCache() {
             try {
                 usageCache = await fetchApi('/api/usage');
-            } catch (e) { console.error('加载配额缓存失败:', e); }
+            } catch (e) { 
+                console.error('加载配额缓存失败:', e); 
+                usageCache = {};
+            }
         }
 
-        function refresh() { loadStatus(); loadUsageCache().then(() => loadAccounts()); loadStrategy(); }
+        async function refresh() { 
+            loadStatus(); 
+            await loadUsageCache();
+            loadAccounts(); 
+            loadStrategy(); 
+        }
 
         (async () => {
             if (await checkAuth()) { showMainPanel(); }
