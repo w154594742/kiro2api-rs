@@ -329,4 +329,4 @@ MIT
 
 - [kiro2api](https://github.com/caidaoli/kiro2api)
 - [proxycast](https://github.com/aiclientproxy/proxycast)
-- [原项目](https://github.com/hank9999/kiro.rs)
+- [kiro.rs](https://github.com/hank9999/kiro.rs)
