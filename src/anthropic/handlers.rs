@@ -195,6 +195,27 @@ pub async fn post_messages(
         payload.tools,
     ) as i32;
 
+    // 检查上下文长度是否超过限制（160k tokens）
+    const MAX_CONTEXT_TOKENS: i32 = 160_000;
+    if input_tokens > MAX_CONTEXT_TOKENS {
+        tracing::warn!(
+            "请求上下文过长: {} tokens，超过限制 {} tokens",
+            input_tokens,
+            MAX_CONTEXT_TOKENS
+        );
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::new(
+                "invalid_request_error",
+                format!(
+                    "Input is too long. Your request contains approximately {} tokens, which exceeds the maximum context limit of {} tokens. Please /compact",
+                    input_tokens, MAX_CONTEXT_TOKENS
+                ),
+            )),
+        )
+            .into_response();
+    }
+
     // 检查是否启用了thinking
     let thinking_enabled = payload
         .thinking
