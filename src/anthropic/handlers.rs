@@ -283,10 +283,19 @@ async fn handle_stream_request(
             if let (Some(id), Some(pool)) = (&account_id, &pool) {
                 let is_rate_limit = error_msg.contains("429") || error_msg.contains("rate");
                 let is_suspended = error_msg.contains("suspended") || error_msg.contains("403");
+                // 402 Payment Required 表示月度请求限制已达上限
+                let is_quota_exceeded = error_msg.contains("402")
+                    || error_msg.contains("Payment Required")
+                    || error_msg.contains("MONTHLY_REQUEST_COUNT")
+                    || error_msg.contains("reached the limit");
 
-                if is_suspended {
+                if is_suspended || is_quota_exceeded {
                     pool.mark_invalid(id).await;
-                    tracing::warn!("账号 {} 已被标记为失效（暂停）", id);
+                    if is_quota_exceeded {
+                        tracing::warn!("账号 {} 已被标记为失效（月度配额耗尽）", id);
+                    } else {
+                        tracing::warn!("账号 {} 已被标记为失效（暂停）", id);
+                    }
                 } else {
                     pool.record_error(id, is_rate_limit).await;
                     tracing::warn!("账号 {} 记录错误，限流: {}", id, is_rate_limit);
@@ -306,6 +315,30 @@ async fn handle_stream_request(
                     duration_ms: start_time.elapsed().as_millis() as u64,
                 };
                 pool.add_request_log(log).await;
+
+                // 对于配额耗尽，返回 402 错误
+                if is_quota_exceeded {
+                    return (
+                        StatusCode::PAYMENT_REQUIRED,
+                        Json(ErrorResponse::new(
+                            "billing_error",
+                            "Your account has reached its monthly request limit. Please check your plan and billing details.",
+                        )),
+                    )
+                        .into_response();
+                }
+
+                // 对于账号暂停，返回 403 错误
+                if is_suspended {
+                    return (
+                        StatusCode::FORBIDDEN,
+                        Json(ErrorResponse::new(
+                            "permission_error",
+                            "Your API key does not have permission to access this resource.",
+                        )),
+                    )
+                        .into_response();
+                }
             }
 
             return (
@@ -529,10 +562,19 @@ async fn handle_non_stream_request(
             if let (Some(id), Some(pool)) = (&account_id, &pool) {
                 let is_rate_limit = error_msg.contains("429") || error_msg.contains("rate");
                 let is_suspended = error_msg.contains("suspended") || error_msg.contains("403");
+                // 402 Payment Required 表示月度请求限制已达上限
+                let is_quota_exceeded = error_msg.contains("402")
+                    || error_msg.contains("Payment Required")
+                    || error_msg.contains("MONTHLY_REQUEST_COUNT")
+                    || error_msg.contains("reached the limit");
 
-                if is_suspended {
+                if is_suspended || is_quota_exceeded {
                     pool.mark_invalid(id).await;
-                    tracing::warn!("账号 {} 已被标记为失效（暂停）", id);
+                    if is_quota_exceeded {
+                        tracing::warn!("账号 {} 已被标记为失效（月度配额耗尽）", id);
+                    } else {
+                        tracing::warn!("账号 {} 已被标记为失效（暂停）", id);
+                    }
                 } else {
                     pool.record_error(id, is_rate_limit).await;
                     tracing::warn!("账号 {} 记录错误，限流: {}", id, is_rate_limit);
@@ -552,6 +594,30 @@ async fn handle_non_stream_request(
                     duration_ms: start_time.elapsed().as_millis() as u64,
                 };
                 pool.add_request_log(log).await;
+
+                // 对于配额耗尽，返回 402 错误
+                if is_quota_exceeded {
+                    return (
+                        StatusCode::PAYMENT_REQUIRED,
+                        Json(ErrorResponse::new(
+                            "billing_error",
+                            "Your account has reached its monthly request limit. Please check your plan and billing details.",
+                        )),
+                    )
+                        .into_response();
+                }
+
+                // 对于账号暂停，返回 403 错误
+                if is_suspended {
+                    return (
+                        StatusCode::FORBIDDEN,
+                        Json(ErrorResponse::new(
+                            "permission_error",
+                            "Your API key does not have permission to access this resource.",
+                        )),
+                    )
+                        .into_response();
+                }
             }
 
             return (
