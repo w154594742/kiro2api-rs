@@ -2,7 +2,7 @@
 
 use axum::{
     extract::State,
-    http::{Request, StatusCode},
+    http::{header, Request, StatusCode},
     middleware::{self, Next},
     response::{Html, IntoResponse, Json, Response},
     routing::{delete, get, post},
@@ -14,6 +14,10 @@ use std::time::Instant;
 
 use crate::kiro::model::credentials::KiroCredentials;
 use crate::pool::{Account, AccountPool, SelectionStrategy};
+
+const FUSION_PIXEL_FONT_WOFF2: &[u8] =
+    include_bytes!("../../assets/fonts/fusion-pixel-12px-monospaced-zh_hans.woff2");
+const PROJECT_ICON_SVG: &[u8] = include_bytes!("../../assets/icon.svg");
 
 /// UI 共享状态
 #[derive(Clone)]
@@ -86,12 +90,42 @@ pub fn create_ui_router(state: UiState) -> Router {
     // 公开路由（登录页面）
     Router::new()
         .route("/", get(index_page))
+        .route("/assets/icon.svg", get(project_icon))
+        .route(
+            "/assets/fonts/fusion-pixel-12px-monospaced-zh_hans.woff2",
+            get(font_fusion_pixel),
+        )
         .merge(protected_api)
 }
 
 /// 首页
 async fn index_page() -> impl IntoResponse {
     Html(include_str!("index.html"))
+}
+
+/// 像素字体静态资源
+async fn font_fusion_pixel() -> impl IntoResponse {
+    (
+        [
+            (header::CONTENT_TYPE, "font/woff2"),
+            (
+                header::CACHE_CONTROL,
+                "public, max-age=31536000, immutable",
+            ),
+        ],
+        FUSION_PIXEL_FONT_WOFF2,
+    )
+}
+
+/// 项目图标静态资源
+async fn project_icon() -> impl IntoResponse {
+    (
+        [
+            (header::CONTENT_TYPE, "image/svg+xml; charset=utf-8"),
+            (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
+        ],
+        PROJECT_ICON_SVG,
+    )
 }
 
 /// 状态响应

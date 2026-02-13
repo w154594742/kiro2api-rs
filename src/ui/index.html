@@ -4,23 +4,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kiro-RS 管理面板</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <title>Kiro-RS Terminal Console</title>
+    <link rel="icon" type="image/svg+xml" href="/assets/icon.svg">
     <style>
+        @font-face {
+            font-family: 'FusionPixel';
+            src: url('/assets/fonts/fusion-pixel-12px-monospaced-zh_hans.woff2') format('woff2'),
+                url('https://fusion-pixel-font.takwolf.com/fusion-pixel-12px-monospaced-zh_hans.otf.woff2') format('woff2');
+            font-display: swap;
+        }
+
         :root {
-            --primary: #6366f1;
-            --primary-glow: rgba(99, 102, 241, 0.4);
-            --secondary: #8b5cf6;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --error: #ef4444;
-            --bg-dark: #0f172a;
-            --card-bg: rgba(30, 41, 59, 0.4);
-            --glass-border: rgba(255, 255, 255, 0.08);
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
+            --bg: #0b0a09;
+            --bg-elev: #13110d;
+            --panel: #17140f;
+            --panel-2: #1d1811;
+            --amber: #ffb347;
+            --amber-dim: #cc8b2f;
+            --amber-glow: rgba(255, 179, 71, 0.26);
+            --ok: #57d38c;
+            --warn: #ffd166;
+            --err: #ff6b6b;
+            --text: #f4d19b;
+            --text-dim: #b99258;
+            --grid-line: rgba(255, 179, 71, 0.08);
+            --border: rgba(255, 179, 71, 0.38);
+            --border-strong: rgba(255, 179, 71, 0.72);
+            --shadow: 0 0 0 1px rgba(255, 179, 71, 0.1), 0 20px 40px rgba(0, 0, 0, 0.45);
+            --radius: 4px;
+            --font-main: 'FusionPixel', 'Noto Sans Mono CJK SC', 'Sarasa Mono SC', 'PingFang SC', 'Microsoft YaHei', monospace;
         }
 
         * {
@@ -29,51 +41,181 @@
             padding: 0;
         }
 
+        html,
         body {
-            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
-            background-color: #020617;
+            min-height: 100%;
+        }
+
+        body {
+            font-family: var(--font-main);
+            color: var(--text);
+            background-color: var(--bg);
             background-image:
-                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-                radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(56, 189, 248, 0.15) 0px, transparent 50%);
-            background-attachment: fixed;
-            color: var(--text-main);
-            min-height: 100vh;
+                linear-gradient(var(--grid-line) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
+                radial-gradient(circle at 50% 0%, rgba(255, 179, 71, 0.08), transparent 45%),
+                linear-gradient(180deg, #0f0d0a 0%, #090806 100%);
+            background-size: 22px 22px, 22px 22px, 100% 100%, 100% 100%;
             padding: 20px;
             overflow-x: hidden;
+            image-rendering: pixelated;
+            letter-spacing: 0.02em;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background: repeating-linear-gradient(to bottom,
+                    rgba(0, 0, 0, 0.18) 0,
+                    rgba(0, 0, 0, 0.18) 1px,
+                    transparent 2px,
+                    transparent 4px);
+            opacity: 0.45;
+            mix-blend-mode: multiply;
+            z-index: 1;
+        }
+
+        .container,
+        .login-container,
+        .toast-root {
+            position: relative;
+            z-index: 2;
         }
 
         .container {
             max-width: 1400px;
             margin: 0 auto;
-            animation: fadeIn 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+            animation: bootFade 280ms steps(8, end);
+        }
+
+        h1,
+        h2,
+        h3 {
+            font-weight: 400;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
         }
 
         h1 {
-            background: linear-gradient(135deg, #cbd5e1 0%, #ffffff 100%);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 24px;
-            font-size: 32px;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-            text-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+            color: var(--amber);
+            font-size: 28px;
+            text-shadow: 0 0 14px var(--amber-glow);
         }
 
         h2 {
-            color: var(--text-main);
-            margin-bottom: 16px;
-            font-size: 20px;
-            font-weight: 600;
+            font-size: 15px;
+            color: var(--text);
+            margin-bottom: 12px;
         }
 
         h3 {
-            color: var(--text-main);
-            font-weight: 600;
+            font-size: 13px;
+            color: var(--amber);
+            margin-bottom: 12px;
         }
 
-        /* Login */
+        .surface {
+            background: linear-gradient(180deg, rgba(255, 179, 71, 0.06), transparent 18%), var(--panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        .window-frame {
+            padding: 18px;
+            margin-bottom: 16px;
+        }
+
+        .window-titlebar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
+
+        .title-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .signal {
+            display: inline-flex;
+            gap: 4px;
+            align-items: flex-end;
+            min-width: 28px;
+        }
+
+        .signal span {
+            display: block;
+            width: 5px;
+            background: var(--amber);
+            box-shadow: 0 0 8px var(--amber-glow);
+            animation: signalPulse 1.8s steps(2, end) infinite;
+        }
+
+        .signal span:nth-child(1) {
+            height: 6px;
+            animation-delay: 0s;
+        }
+
+        .signal span:nth-child(2) {
+            height: 10px;
+            animation-delay: 0.25s;
+        }
+
+        .signal span:nth-child(3) {
+            height: 14px;
+            animation-delay: 0.45s;
+        }
+
+        .title-meta {
+            color: var(--text-dim);
+            font-size: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .title-links {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .title-links a {
+            color: var(--amber);
+            text-decoration: none;
+        }
+
+        .title-links a:hover {
+            text-decoration: underline;
+        }
+
+        .terminal-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 6px 10px;
+            background: rgba(255, 179, 71, 0.05);
+            color: var(--text-dim);
+        }
+
+        .terminal-chip strong {
+            color: var(--amber);
+            font-weight: 400;
+        }
+
         .login-container {
             display: none;
             align-items: center;
@@ -82,397 +224,384 @@
         }
 
         .login-box {
-            background: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 48px;
             width: 100%;
-            max-width: 420px;
-            text-align: center;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            animation: floatUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
-        }
-
-        .login-box h1 {
-            margin-bottom: 12px;
+            max-width: 520px;
+            padding: 26px;
         }
 
         .login-box p {
-            color: var(--text-muted);
-            margin-bottom: 32px;
-            font-weight: 300;
-        }
-
-        .login-box input {
-            width: 100%;
+            color: var(--text-dim);
+            margin-top: 8px;
             margin-bottom: 20px;
+            font-size: 13px;
         }
 
-        .login-box .btn {
-            width: 100%;
-            padding: 16px;
-            font-size: 15px;
+        .prompt {
+            color: var(--amber);
+            margin-bottom: 8px;
+            font-size: 12px;
         }
 
         .login-error {
-            color: var(--error);
-            margin-bottom: 16px;
-            font-size: 14px;
-            background: rgba(239, 68, 68, 0.1);
-            padding: 8px;
-            border-radius: 8px;
             display: none;
+            margin-bottom: 12px;
+            border: 1px solid rgba(255, 107, 107, 0.55);
+            background: rgba(255, 107, 107, 0.12);
+            color: var(--err);
+            border-radius: var(--radius);
+            padding: 10px 12px;
+            font-size: 12px;
         }
 
-        /* Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 16px;
-            margin-bottom: 32px;
+            grid-template-columns: repeat(8, minmax(140px, 1fr));
+            gap: 10px;
+            margin-bottom: 16px;
         }
 
         .stat-card {
-            background: var(--card-bg);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            padding: 20px;
-            text-align: center;
-            transition: transform 0.3s ease, background 0.3s;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: linear-gradient(180deg, rgba(255, 179, 71, 0.05), transparent), var(--panel-2);
+            padding: 12px;
+            min-height: 92px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: border-color 120ms steps(2, end), transform 120ms steps(2, end);
         }
 
         .stat-card:hover {
-            transform: translateY(-4px);
-            background: rgba(30, 41, 59, 0.6);
-        }
-
-        .stat-card .value {
-            font-size: 32px;
-            font-weight: 700;
-            color: var(--text-main);
-            margin-bottom: 4px;
-            text-shadow: 0 0 20px rgba(99, 102, 241, 0.1);
+            border-color: var(--border-strong);
+            transform: translateY(-1px);
         }
 
         .stat-card .label {
-            font-size: 12px;
-            color: var(--text-muted);
+            color: var(--text-dim);
+            font-size: 11px;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            font-weight: 500;
+            line-height: 1.5;
+        }
+
+        .stat-card .value {
+            color: var(--amber);
+            font-size: 22px;
+            line-height: 1.2;
+            text-shadow: 0 0 12px var(--amber-glow);
         }
 
         .stat-card.success .value {
-            color: var(--success);
-            text-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+            color: var(--ok);
+            text-shadow: 0 0 10px rgba(87, 211, 140, 0.24);
         }
 
         .stat-card.warning .value {
-            color: var(--warning);
-            text-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
+            color: var(--warn);
+            text-shadow: 0 0 10px rgba(255, 209, 102, 0.28);
         }
 
         .stat-card.error .value {
-            color: var(--error);
-            text-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+            color: var(--err);
+            text-shadow: 0 0 10px rgba(255, 107, 107, 0.28);
         }
 
-        /* Main Card */
         .card {
-            background: var(--card-bg);
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 24px;
-            margin-bottom: 24px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            padding: 16px;
+            margin-bottom: 16px;
         }
 
-        /* Toolbar */
+        .tabs {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-bottom: 14px;
+            padding: 4px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: rgba(255, 179, 71, 0.04);
+        }
+
+        .tab {
+            padding: 8px 14px;
+            border: 1px solid transparent;
+            border-radius: var(--radius);
+            background: transparent;
+            color: var(--text-dim);
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        .tab:hover {
+            border-color: rgba(255, 179, 71, 0.2);
+            color: var(--text);
+        }
+
+        .tab.active {
+            border-color: var(--border-strong);
+            color: var(--amber);
+            background: rgba(255, 179, 71, 0.1);
+            box-shadow: 0 0 8px rgba(255, 179, 71, 0.2) inset;
+        }
+
         .toolbar {
             display: flex;
-            gap: 12px;
-            margin-bottom: 24px;
-            flex-wrap: wrap;
+            gap: 8px;
             align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
         }
 
-        /* Controls */
+        .toolbar-spacer {
+            flex: 1;
+            min-width: 12px;
+        }
+
+        button,
+        input,
+        select,
+        textarea {
+            font-family: inherit;
+            font-size: 12px;
+        }
+
         select,
         input,
         textarea {
-            background: rgba(15, 23, 42, 0.5);
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            padding: 10px 16px;
-            color: var(--text-main);
-            font-size: 14px;
-            font-family: inherit;
-            transition: all 0.2s ease;
+            width: auto;
+            background: rgba(0, 0, 0, 0.28);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: var(--radius);
+            padding: 10px 12px;
+            min-height: 38px;
+            outline: none;
+        }
+
+        input::placeholder,
+        textarea::placeholder {
+            color: #8d6a3b;
         }
 
         select:focus,
         input:focus,
         textarea:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px var(--primary-glow);
-            background: rgba(15, 23, 42, 0.8);
+            border-color: var(--border-strong);
+            box-shadow: 0 0 0 2px rgba(255, 179, 71, 0.18);
         }
 
-        /* Buttons */
+        textarea {
+            width: 100%;
+            min-height: 90px;
+            resize: vertical;
+            line-height: 1.55;
+        }
+
         .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            min-height: 38px;
+            padding: 10px 14px;
+            color: var(--text);
+            background: linear-gradient(180deg, rgba(255, 179, 71, 0.1), rgba(255, 179, 71, 0.03));
             cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: border-color 120ms steps(2, end), color 120ms steps(2, end), transform 120ms steps(2, end);
+            text-transform: uppercase;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            border-color: var(--border-strong);
+            color: var(--amber);
+            transform: translateY(-1px);
         }
 
         .btn:active {
-            transform: scale(0.96);
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: wait;
+            transform: none;
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            color: white;
-            box-shadow: 0 4px 14px 0 rgba(99, 102, 241, 0.3);
-        }
-
-        .btn-primary:hover {
-            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
-            filter: brightness(1.1);
-        }
-
-        .btn-success {
-            background: linear-gradient(135deg, #10b981, #059669);
-            color: white;
-            box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.3);
-        }
-
-        .btn-success:hover {
-            filter: brightness(1.1);
-        }
-
-        .btn-danger {
-            background: linear-gradient(135deg, #ef4444, #dc2626);
-            color: white;
-            box-shadow: 0 4px 14px 0 rgba(239, 68, 68, 0.3);
-        }
-
-        .btn-danger:hover {
-            filter: brightness(1.1);
+            background: linear-gradient(180deg, rgba(255, 179, 71, 0.22), rgba(255, 179, 71, 0.08));
+            color: var(--amber);
+            border-color: var(--border-strong);
         }
 
         .btn-secondary {
-            background: rgba(255, 255, 255, 0.05);
-            color: var(--text-main);
-            border: 1px solid var(--glass-border);
+            background: rgba(255, 179, 71, 0.04);
+            color: var(--text-dim);
         }
 
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.1);
-            border-color: rgba(255, 255, 255, 0.2);
+        .btn-success {
+            border-color: rgba(87, 211, 140, 0.6);
+            color: var(--ok);
+            background: rgba(87, 211, 140, 0.08);
         }
 
         .btn-warning {
-            background: linear-gradient(135deg, #f59e0b, #d97706);
-            color: white;
+            border-color: rgba(255, 209, 102, 0.6);
+            color: var(--warn);
+            background: rgba(255, 209, 102, 0.08);
         }
 
-        .btn-warning:hover {
-            filter: brightness(1.1);
+        .btn-danger {
+            border-color: rgba(255, 107, 107, 0.6);
+            color: var(--err);
+            background: rgba(255, 107, 107, 0.08);
         }
 
         .btn-sm {
-            padding: 6px 14px;
-            font-size: 12px;
-            border-radius: 8px;
+            min-height: 32px;
+            padding: 7px 10px;
+            font-size: 11px;
         }
 
-        /* Tabs */
-        .tabs {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 24px;
+        .table-wrap {
+            width: 100%;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
             background: rgba(0, 0, 0, 0.2);
-            padding: 4px;
-            border-radius: 16px;
-            width: fit-content;
         }
 
-        .tab {
-            padding: 10px 24px;
-            cursor: pointer;
-            color: var(--text-muted);
-            border-radius: 12px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            border: none;
-            background: transparent;
-        }
-
-        .tab:hover {
-            color: var(--text-main);
-        }
-
-        .tab.active {
-            color: white;
-            background: rgba(255, 255, 255, 0.1);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-
-        /* Table */
         table {
             width: 100%;
-            border-collapse: separate;
-            border-spacing: 0 4px;
-            font-size: 14px;
+            border-collapse: collapse;
+            min-width: 900px;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(255, 179, 71, 0.15);
+            vertical-align: middle;
+            white-space: nowrap;
+            font-size: 12px;
         }
 
         th {
-            text-align: left;
-            padding: 16px;
-            color: var(--text-muted);
-            font-weight: 600;
-            font-size: 12px;
+            color: var(--text-dim);
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        tr {
-            transition: background 0.2s;
-        }
-
-        tbody tr {
-            background: rgba(255, 255, 255, 0.02);
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            background: rgba(255, 179, 71, 0.06);
         }
 
         tbody tr:hover {
-            background: rgba(255, 255, 255, 0.05);
-            transform: scale(1.002);
+            background: rgba(255, 179, 71, 0.08);
         }
 
-        td {
-            padding: 16px;
-            border: none;
+        .row-actions {
+            display: inline-flex;
+            gap: 6px;
+            align-items: center;
         }
 
-        tbody tr td:first-child {
-            border-top-left-radius: 12px;
-            border-bottom-left-radius: 12px;
-            color: white;
-            font-weight: 500;
-        }
-
-        tbody tr td:last-child {
-            border-top-right-radius: 12px;
-            border-bottom-right-radius: 12px;
-        }
-
-        /* Status & Badges */
         .status-badge {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            border: 1px solid transparent;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 5px 8px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            background: rgba(255, 179, 71, 0.08);
         }
 
         .status-active {
-            background: rgba(16, 185, 129, 0.1);
-            color: #34d399;
-            border-color: rgba(16, 185, 129, 0.2);
-        }
-
-        .status-active::before {
-            content: '';
-            width: 6px;
-            height: 6px;
-            background: #34d399;
-            border-radius: 50%;
-            box-shadow: 0 0 8px #34d399;
+            color: var(--ok);
+            border-color: rgba(87, 211, 140, 0.6);
+            background: rgba(87, 211, 140, 0.12);
         }
 
         .status-cooldown {
-            background: rgba(245, 158, 11, 0.1);
-            color: #fbbf24;
-            border-color: rgba(245, 158, 11, 0.2);
+            color: var(--warn);
+            border-color: rgba(255, 209, 102, 0.6);
+            background: rgba(255, 209, 102, 0.12);
         }
 
         .status-invalid {
-            background: rgba(239, 68, 68, 0.1);
-            color: #f87171;
-            border-color: rgba(239, 68, 68, 0.2);
+            color: var(--err);
+            border-color: rgba(255, 107, 107, 0.65);
+            background: rgba(255, 107, 107, 0.12);
         }
 
         .status-disabled {
-            background: rgba(148, 163, 184, 0.1);
-            color: #94a3b8;
-            border-color: rgba(148, 163, 184, 0.2);
+            color: #a98456;
+            border-color: rgba(169, 132, 86, 0.55);
+            background: rgba(169, 132, 86, 0.1);
         }
 
-        /* Usage Bar */
-        .usage-bar {
+        .usage-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 180px;
+        }
+
+        .usage-meter {
             width: 120px;
-            height: 8px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 4px;
+            height: 12px;
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            background: repeating-linear-gradient(90deg, rgba(255, 179, 71, 0.1) 0 6px, rgba(0, 0, 0, 0.18) 6px 10px);
             overflow: hidden;
             position: relative;
         }
 
-        .usage-bar-fill {
+        .usage-meter-fill {
             height: 100%;
-            background: var(--success);
-            border-radius: 4px;
-            position: relative;
+            background: repeating-linear-gradient(90deg, rgba(87, 211, 140, 0.95) 0 8px, rgba(87, 211, 140, 0.68) 8px 10px);
+            box-shadow: 0 0 8px rgba(87, 211, 140, 0.35);
+            transition: width 180ms steps(8, end);
         }
 
-        .usage-bar-fill::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            animation: shimmer 2s infinite;
+        .usage-meter-fill.warning {
+            background: repeating-linear-gradient(90deg, rgba(255, 209, 102, 0.95) 0 8px, rgba(255, 209, 102, 0.68) 8px 10px);
+            box-shadow: 0 0 8px rgba(255, 209, 102, 0.35);
         }
 
-        .usage-bar-fill.warning {
-            background: var(--warning);
+        .usage-meter-fill.danger {
+            background: repeating-linear-gradient(90deg, rgba(255, 107, 107, 0.95) 0 8px, rgba(255, 107, 107, 0.68) 8px 10px);
+            box-shadow: 0 0 8px rgba(255, 107, 107, 0.35);
         }
 
-        .usage-bar-fill.danger {
-            background: var(--error);
+        .usage-text {
+            font-size: 11px;
+            color: var(--text-dim);
         }
 
-        /* Modal */
+        .empty-state {
+            border: 1px dashed rgba(255, 179, 71, 0.35);
+            border-radius: var(--radius);
+            padding: 38px 18px;
+            color: var(--text-dim);
+            text-align: center;
+            background: rgba(255, 179, 71, 0.03);
+            font-size: 12px;
+        }
+
         .modal {
             display: none;
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(8px);
+            inset: 0;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.68);
             align-items: center;
             justify-content: center;
-            z-index: 1000;
-            animation: fadeIn 0.2s ease;
+            padding: 16px;
         }
 
         .modal.show {
@@ -480,57 +609,99 @@
         }
 
         .modal-content {
-            background: rgba(15, 23, 42, 0.95);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 32px;
-            width: 90%;
-            max-width: 500px;
+            width: min(720px, 100%);
             max-height: 90vh;
             overflow-y: auto;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            animation: zoomIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+            padding: 18px;
         }
 
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 14px;
         }
 
         .form-group label {
             display: block;
-            color: var(--text-muted);
-            font-weight: 500;
-            font-size: 14px;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
+            font-size: 11px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
         }
 
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 12px;
         }
 
-        .form-group textarea {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 13px;
-            min-height: 80px;
+        .hotkeys {
+            color: var(--text-dim);
+            font-size: 11px;
+            margin-top: 6px;
         }
 
-        /* Animations */
-        @keyframes fadeIn {
+        .kbd {
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            padding: 1px 5px;
+            color: var(--amber);
+            background: rgba(255, 179, 71, 0.08);
+            font-size: 10px;
+        }
+
+        .toast-root {
+            position: fixed;
+            right: 14px;
+            top: 14px;
+            width: min(340px, calc(100vw - 28px));
+            z-index: 1200;
+            display: grid;
+            gap: 8px;
+        }
+
+        .toast {
+            border: 1px solid var(--border);
+            border-left-width: 4px;
+            border-radius: var(--radius);
+            padding: 10px 12px;
+            background: var(--panel);
+            color: var(--text);
+            font-size: 12px;
+            box-shadow: var(--shadow);
+            animation: toastIn 180ms steps(5, end);
+        }
+
+        .toast.info {
+            border-left-color: var(--amber);
+        }
+
+        .toast.success {
+            border-left-color: var(--ok);
+            color: var(--ok);
+        }
+
+        .toast.error {
+            border-left-color: var(--err);
+            color: var(--err);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            border: 0;
+        }
+
+        @keyframes bootFade {
             from {
                 opacity: 0;
-            }
-
-            to {
-                opacity: 1;
-            }
-        }
-
-        @keyframes floatUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
+                transform: translateY(4px);
             }
 
             to {
@@ -539,168 +710,241 @@
             }
         }
 
-        @keyframes zoomIn {
+        @keyframes toastIn {
             from {
                 opacity: 0;
-                transform: scale(0.95);
+                transform: translateX(8px);
             }
 
             to {
                 opacity: 1;
-                transform: scale(1);
+                transform: translateX(0);
             }
         }
 
-        @keyframes shimmer {
-            0% {
-                transform: translateX(-100%);
-            }
-
+        @keyframes signalPulse {
+            0%,
             100% {
-                transform: translateX(100%);
+                opacity: 0.5;
+            }
+
+            50% {
+                opacity: 1;
             }
         }
 
-        .empty-state {
-            padding: 60px;
-            color: var(--text-muted);
-            font-size: 16px;
-            opacity: 0.7;
-        }
-
-        /* Scrollbar */
         ::-webkit-scrollbar {
             width: 8px;
             height: 8px;
         }
 
         ::-webkit-scrollbar-track {
-            background: transparent;
+            background: rgba(0, 0, 0, 0.2);
         }
 
         ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 4px;
+            background: rgba(255, 179, 71, 0.35);
+            border-radius: 2px;
         }
 
         ::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 179, 71, 0.55);
+        }
+
+        @media (max-width: 1024px) {
+            body {
+                padding: 14px;
+            }
+
+            .window-titlebar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .title-right {
+                width: 100%;
+                display: flex;
+                justify-content: flex-start;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(4, minmax(120px, 1fr));
+            }
+        }
+
+        @media (max-width: 640px) {
+            h1 {
+                font-size: 20px;
+            }
+
+            .window-frame,
+            .card,
+            .login-box,
+            .modal-content {
+                padding: 12px;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, minmax(120px, 1fr));
+            }
+
+            .toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .toolbar .btn,
+            .toolbar select {
+                width: 100%;
+            }
+
+            .toolbar-spacer {
+                display: none;
+            }
+
+            .form-actions {
+                justify-content: stretch;
+            }
+
+            .form-actions .btn {
+                flex: 1;
+            }
+
+            .usage-wrap {
+                min-width: 150px;
+            }
+
+            .usage-meter {
+                width: 92px;
+            }
+
+            .title-links {
+                width: 100%;
+            }
+
+            .title-links .terminal-chip {
+                width: 100%;
+                justify-content: flex-start;
+            }
         }
     </style>
 </head>
 
 <body>
-    <!-- 登录页面 -->
+    <div class="toast-root" id="toastRoot" aria-live="polite" aria-atomic="false"></div>
+
     <div class="login-container" id="loginPage">
-        <div class="login-box">
-            <h1>🔐 Kiro-RS</h1>
-            <p>请输入 API 密钥登录管理面板</p>
-            <div class="login-error" id="loginError">密钥错误，请重试</div>
-            <input type="password" id="apiKeyInput" placeholder="API 密钥" onkeypress="if(event.key==='Enter')login()">
-            <button class="btn btn-primary" onclick="login()">马上登录</button>
+        <div class="login-box surface">
+            <h1>Kiro-RS Console</h1>
+            <p>[ AUTH REQUIRED ] 输入 API Key 登录管理控制台</p>
+            <div class="prompt">$ AUTH TOKEN:</div>
+            <div class="login-error" id="loginError">认证失败，请检查 API 密钥。</div>
+            <label class="sr-only" for="apiKeyInput">API Key</label>
+            <input type="password" id="apiKeyInput" placeholder="sk-..." onkeypress="if(event.key==='Enter') login()">
+            <div class="form-actions" style="margin-top: 12px; justify-content: stretch;">
+                <button class="btn btn-primary" onclick="login(this)" style="width:100%;">LOGIN</button>
+            </div>
         </div>
     </div>
 
-    <!-- 主面板 -->
     <div class="container" id="mainPanel" style="display:none;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;">
-            <div style="display:flex;align-items:center;gap:12px;">
-                <span style="font-size:32px">🚀</span>
-                <div>
-                    <div style="display:flex;align-items:center;gap:16px;">
-                        <h1>Kiro-RS 管理面板</h1>
-                        <a href="https://github.com/vagmr/kiro2api-rs" target="_blank" style="color:var(--text-muted);text-decoration:none;font-size:14px;display:flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(255,255,255,0.05);border-radius:8px;transition:all 0.2s;">
-                            <svg height="18" width="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-                            项目地址
-                        </a>
+        <div class="window-frame surface">
+            <div class="window-titlebar">
+                <div class="title-left">
+                    <div class="signal" aria-hidden="true">
+                        <span></span><span></span><span></span>
                     </div>
-                    <div style="font-size:13px;color:var(--text-muted);margin-top:-20px;">高性能 AI 服务管理系统</div>
+                    <div>
+                        <h1>Kiro-RS Management Terminal</h1>
+                        <div class="title-meta">[ POOL MODE ] Account Orchestration + Usage Monitor</div>
+                    </div>
+                </div>
+                <div class="title-right title-links">
+                    <span class="terminal-chip"><strong>HOTKEY</strong> <span class="kbd">Alt+R</span> Refresh <span class="kbd">Alt+A</span> Add</span>
+                    <a class="terminal-chip" href="https://github.com/vagmr/kiro2api-rs" target="_blank" rel="noreferrer">
+                        <strong>REPO</strong> github.com/vagmr/kiro2api-rs
+                    </a>
+                    <button class="btn btn-secondary btn-sm" onclick="logout()">LOGOUT</button>
                 </div>
             </div>
-            <button class="btn btn-secondary btn-sm" onclick="logout()">退出登录</button>
+
+            <div class="stats-grid" id="stats">
+                <div class="stat-card">
+                    <div class="label">Uptime</div>
+                    <div class="value" id="stat-uptime">-</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="label">Active Accounts</div>
+                    <div class="value" id="stat-active">-</div>
+                </div>
+                <div class="stat-card warning">
+                    <div class="label">Cooldown</div>
+                    <div class="value" id="stat-cooldown">-</div>
+                </div>
+                <div class="stat-card error">
+                    <div class="label">Invalid</div>
+                    <div class="value" id="stat-invalid">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Total Requests</div>
+                    <div class="value" id="stat-requests">-</div>
+                </div>
+                <div class="stat-card error">
+                    <div class="label">Total Errors</div>
+                    <div class="value" id="stat-errors">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Input Tokens</div>
+                    <div class="value" id="stat-input-tokens">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Output Tokens</div>
+                    <div class="value" id="stat-output-tokens">-</div>
+                </div>
+            </div>
         </div>
 
-        <!-- 统计卡片 -->
-        <div class="stats-grid" id="stats">
-            <div class="stat-card">
-                <div class="value" id="stat-uptime">-</div>
-                <div class="label">运行时间</div>
-            </div>
-            <div class="stat-card success">
-                <div class="value" id="stat-active">-</div>
-                <div class="label">活跃账号</div>
-            </div>
-            <div class="stat-card warning">
-                <div class="value" id="stat-cooldown">-</div>
-                <div class="label">冷却中</div>
-            </div>
-            <div class="stat-card error">
-                <div class="value" id="stat-invalid">-</div>
-                <div class="label">已失效</div>
-            </div>
-            <div class="stat-card">
-                <div class="value" id="stat-requests">-</div>
-                <div class="label">总请求</div>
-            </div>
-            <div class="stat-card error">
-                <div class="value" id="stat-errors">-</div>
-                <div class="label">总错误</div>
-            </div>
-            <div class="stat-card">
-                <div class="value" id="stat-input-tokens">-</div>
-                <div class="label">输入Tokens</div>
-            </div>
-            <div class="stat-card">
-                <div class="value" id="stat-output-tokens">-</div>
-                <div class="label">输出Tokens</div>
-            </div>
+        <div class="tabs" role="tablist" aria-label="management tabs">
+            <button class="tab active" data-tab="accounts" onclick="switchTab('accounts')">Accounts</button>
+            <button class="tab" data-tab="logs" onclick="switchTab('logs')">Request Logs</button>
         </div>
 
-        <!-- 标签页 -->
-        <div class="tabs">
-            <button class="tab active" onclick="switchTab('accounts')">账号管理</button>
-            <button class="tab" onclick="switchTab('logs')">请求记录</button>
-        </div>
-
-        <!-- 账号管理 -->
-        <div class="card tab-content active" id="tab-accounts">
+        <div class="card surface tab-content active" id="tab-accounts">
             <div class="toolbar">
-                <button class="btn btn-primary" onclick="showAddModal()">+ 添加账号</button>
-                <button class="btn btn-warning" onclick="showImportModal()">📥 导入</button>
-                <button class="btn btn-secondary" onclick="refreshAllUsage()">🔄 刷新配额</button>
-                <div style="flex-grow:1"></div>
+                <button class="btn btn-primary" onclick="showAddModal()">+ Add Account</button>
+                <button class="btn btn-warning" onclick="showImportModal()">Import JSON</button>
+                <button class="btn btn-secondary" onclick="refreshAllUsage(this)">Refresh Quota</button>
+                <div class="toolbar-spacer"></div>
                 <select id="strategy" onchange="setStrategy(this.value)">
-                    <option value="round-robin">轮询策略</option>
-                    <option value="random">随机策略</option>
-                    <option value="least-used">最少使用</option>
+                    <option value="round-robin">Round Robin</option>
+                    <option value="random">Random</option>
+                    <option value="least-used">Least Used</option>
                 </select>
-                <button class="btn btn-secondary" onclick="refresh()">刷新</button>
+                <button class="btn btn-secondary" onclick="refreshManual(this)">Refresh</button>
             </div>
             <div id="accounts-table"></div>
         </div>
 
-        <!-- 请求记录 -->
-        <div class="card tab-content" id="tab-logs" style="display:none;">
+        <div class="card surface tab-content" id="tab-logs" style="display:none;">
             <div class="toolbar">
-                <button class="btn btn-secondary" onclick="loadLogs()">刷新记录</button>
+                <button class="btn btn-secondary" onclick="loadLogs(this)">Refresh Logs</button>
             </div>
             <div id="logs-table"></div>
         </div>
     </div>
 
-    <!-- 添加账号弹窗 -->
-    <div class="modal" id="addModal">
-        <div class="modal-content">
-            <h3>添加账号</h3>
+    <div class="modal" id="addModal" onclick="if(event.target===this) hideAddModal()">
+        <div class="modal-content surface">
+            <h3>[ Add Account ]</h3>
             <div class="form-group">
-                <label>名称</label>
+                <label>Display Name</label>
                 <input type="text" id="acc-name" placeholder="账号备注名">
             </div>
             <div class="form-group">
-                <label>认证方式</label>
+                <label>Auth Method</label>
                 <select id="acc-auth" onchange="toggleIdcFields()">
-                    <option value="social">Social</option>
-                    <option value="idc">IdC / BuilderId</option>
+                    <option value="social">social</option>
+                    <option value="idc">idc / builderId</option>
                 </select>
             </div>
             <div class="form-group">
@@ -710,35 +954,34 @@
             <div id="idc-fields" style="display:none;">
                 <div class="form-group">
                     <label>Client ID</label>
-                    <input type="text" id="acc-client-id">
+                    <input type="text" id="acc-client-id" placeholder="clientId">
                 </div>
                 <div class="form-group">
                     <label>Client Secret</label>
-                    <textarea id="acc-client-secret"></textarea>
+                    <textarea id="acc-client-secret" placeholder="clientSecret"></textarea>
                 </div>
             </div>
             <div class="form-actions">
-                <button class="btn btn-secondary" onclick="hideAddModal()">取消</button>
-                <button class="btn btn-primary" onclick="addAccount()">确认添加</button>
+                <button class="btn btn-secondary" onclick="hideAddModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="addAccount(this)">Create</button>
             </div>
         </div>
     </div>
 
-    <!-- 导入账号弹窗 -->
-    <div class="modal" id="importModal">
-        <div class="modal-content">
-            <h3>📥 导入 Kiro 凭证</h3>
+    <div class="modal" id="importModal" onclick="if(event.target===this) hideImportModal()">
+        <div class="modal-content surface">
+            <h3>[ Import Kiro Credentials ]</h3>
             <div class="form-group">
-                <label>自定义名称 (可选)</label>
+                <label>Custom Name (Optional)</label>
                 <input type="text" id="import-name" placeholder="留空则使用 email/label">
             </div>
             <div class="form-group">
-                <label>Kiro 原始 JSON</label>
-                <textarea id="import-json" class="large" placeholder='粘贴完整的 Kiro 凭证 JSON'></textarea>
+                <label>Raw JSON</label>
+                <textarea id="import-json" placeholder='粘贴完整 Kiro 凭证 JSON'></textarea>
             </div>
             <div class="form-actions">
-                <button class="btn btn-secondary" onclick="hideImportModal()">取消</button>
-                <button class="btn btn-warning" onclick="importAccount()">开始导入</button>
+                <button class="btn btn-secondary" onclick="hideImportModal()">Cancel</button>
+                <button class="btn btn-warning" onclick="importAccount(this)">Import</button>
             </div>
         </div>
     </div>
@@ -747,27 +990,96 @@
         let apiKey = localStorage.getItem('kiro_api_key') || '';
         let usageCache = {};
 
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function showToast(message, type = 'info', duration = 2600) {
+            const root = document.getElementById('toastRoot');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            root.appendChild(toast);
+            window.setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(8px)';
+                window.setTimeout(() => toast.remove(), 180);
+            }, duration);
+        }
+
+        function setButtonLoading(button, loading, text = 'PROCESSING...') {
+            if (!button) return;
+            if (loading) {
+                button.dataset.originalText = button.textContent;
+                button.textContent = text;
+                button.disabled = true;
+            } else {
+                button.textContent = button.dataset.originalText || button.textContent;
+                button.disabled = false;
+            }
+        }
+
+        async function withButtonLoading(button, text, task) {
+            setButtonLoading(button, true, text);
+            try {
+                return await task();
+            } finally {
+                setButtonLoading(button, false);
+            }
+        }
+
+        function extractErrorMessage(err) {
+            if (!err) return '未知错误';
+            const raw = String(err.message || err);
+            try {
+                const parsed = JSON.parse(raw);
+                return parsed.error || raw;
+            } catch {
+                const trimmed = raw.replace(/^Error:\s*/, '').trim();
+                return trimmed || '请求失败';
+            }
+        }
+
         async function checkAuth() {
             if (!apiKey) return false;
             try {
                 const res = await fetch('/api/status', { headers: { 'Authorization': 'Bearer ' + apiKey } });
                 return res.ok;
-            } catch { return false; }
+            } catch {
+                return false;
+            }
         }
 
-        async function login() {
+        async function login(button) {
             const key = document.getElementById('apiKeyInput').value.trim();
-            if (!key) { alert('请输入 API 密钥'); return; }
-            try {
-                const res = await fetch('/api/status', { headers: { 'Authorization': 'Bearer ' + key } });
-                if (res.ok) {
+            if (!key) {
+                showToast('请输入 API 密钥', 'error');
+                return;
+            }
+
+            await withButtonLoading(button, 'VERIFYING...', async () => {
+                try {
+                    const res = await fetch('/api/status', { headers: { 'Authorization': 'Bearer ' + key } });
+                    if (!res.ok) {
+                        document.getElementById('loginError').style.display = 'block';
+                        showToast('认证失败，请检查密钥', 'error');
+                        return;
+                    }
                     apiKey = key;
                     localStorage.setItem('kiro_api_key', key);
+                    document.getElementById('loginError').style.display = 'none';
                     showMainPanel();
-                } else {
+                    showToast('登录成功', 'success');
+                } catch {
                     document.getElementById('loginError').style.display = 'block';
+                    showToast('网络异常，认证失败', 'error');
                 }
-            } catch { document.getElementById('loginError').style.display = 'block'; }
+            });
         }
 
         function logout() {
@@ -775,6 +1087,7 @@
             localStorage.removeItem('kiro_api_key');
             document.getElementById('loginPage').style.display = 'flex';
             document.getElementById('mainPanel').style.display = 'none';
+            showToast('已退出登录', 'info');
         }
 
         function showMainPanel() {
@@ -786,15 +1099,29 @@
         async function fetchApi(url, options = {}) {
             const res = await fetch(url, {
                 ...options,
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey, ...options.headers }
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + apiKey,
+                    ...options.headers
+                }
             });
-            if (res.status === 401) { logout(); throw new Error('认证失败'); }
-            if (!res.ok && res.status !== 204) throw new Error(await res.text() || res.statusText);
+
+            if (res.status === 401) {
+                logout();
+                throw new Error('认证失败，请重新登录');
+            }
+
+            if (!res.ok && res.status !== 204) {
+                throw new Error(await res.text() || res.statusText);
+            }
+
             return res.status === 204 ? null : res.json();
         }
 
         function formatUptime(secs) {
-            const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
+            const h = Math.floor(secs / 3600);
+            const m = Math.floor((secs % 3600) / 60);
+            const s = secs % 60;
             if (h > 0) return `${h}h ${m}m`;
             if (m > 0) return `${m}m ${s}s`;
             return `${s}s`;
@@ -806,6 +1133,15 @@
             return n.toString();
         }
 
+        function statusLabel(status) {
+            const key = String(status || '').toLowerCase();
+            if (key === 'active') return '[ACTIVE]';
+            if (key === 'cooldown') return '[COOLDOWN]';
+            if (key === 'invalid') return '[INVALID]';
+            if (key === 'disabled') return '[DISABLED]';
+            return `[${key || 'UNKNOWN'}]`;
+        }
+
         async function loadStatus() {
             try {
                 const data = await fetchApi('/api/status');
@@ -815,14 +1151,17 @@
                 document.getElementById('stat-invalid').textContent = data.pool.invalid;
                 document.getElementById('stat-requests').textContent = formatNumber(data.pool.total_requests);
                 document.getElementById('stat-errors').textContent = data.pool.total_errors;
-            } catch (e) { console.error(e); }
+            } catch (e) {
+                console.error(e);
+            }
 
-            // 加载请求统计
             try {
                 const stats = await fetchApi('/api/logs/stats');
                 document.getElementById('stat-input-tokens').textContent = formatNumber(stats.total_input_tokens || 0);
                 document.getElementById('stat-output-tokens').textContent = formatNumber(stats.total_output_tokens || 0);
-            } catch (e) { console.error(e); }
+            } catch (e) {
+                console.error(e);
+            }
         }
 
         async function loadAccounts() {
@@ -831,118 +1170,172 @@
                 const container = document.getElementById('accounts-table');
 
                 if (accounts.length === 0) {
-                    container.innerHTML = '<div class="empty-state"><p>🚀 暂无账号，点击上方按钮添加或导入</p></div>';
+                    container.innerHTML = '<div class="empty-state">[ EMPTY ] 暂无账号，点击上方按钮添加或导入。</div>';
                     return;
                 }
 
-                container.innerHTML = `<table>
-                    <thead><tr><th>名称</th><th>状态</th><th>配额</th><th>请求</th><th>错误</th><th>最后使用</th><th>操作</th></tr></thead>
+                container.innerHTML = `<div class="table-wrap"><table>
+                    <thead><tr><th>Name</th><th>Status</th><th>Quota</th><th>Requests</th><th>Errors</th><th>Last Used</th><th>Actions</th></tr></thead>
                     <tbody>${accounts.map(a => {
-                    const usage = usageCache[a.id];
-                    let usageHtml = '<span style="color:var(--text-muted)">?</span>';
-                    if (usage) {
-                        const pct = usage.usage_limit > 0 ? (usage.available / usage.usage_limit * 100) : 0;
-                        const cls = pct < 10 ? 'danger' : pct < 30 ? 'warning' : '';
-                        usageHtml = `<div style="display:flex;align-items:center;gap:12px;">
-                                <div class="usage-bar"><div class="usage-bar-fill ${cls}" style="width:${pct}%"></div></div>
-                                <span style="font-size:12px">${usage.available.toFixed(1)}</span>
+                        const usage = usageCache[a.id];
+                        let usageHtml = '<span class="usage-text">N/A</span>';
+                        if (usage && usage.usage_limit > 0) {
+                            const pct = Math.max(0, Math.min(100, usage.available / usage.usage_limit * 100));
+                            const cls = pct < 10 ? 'danger' : pct < 30 ? 'warning' : '';
+                            usageHtml = `<div class="usage-wrap">
+                                <div class="usage-meter"><div class="usage-meter-fill ${cls}" style="width:${pct}%"></div></div>
+                                <span class="usage-text">${usage.available.toFixed(1)}</span>
                             </div>`;
-                    }
-                    return `<tr>
-                            <td>${a.name}</td>
-                            <td><span class="status-badge status-${a.status}">${a.status}</span></td>
+                        }
+
+                        return `<tr>
+                            <td>${escapeHtml(a.name)}</td>
+                            <td><span class="status-badge status-${escapeHtml(a.status)}">${statusLabel(a.status)}</span></td>
                             <td>${usageHtml}</td>
                             <td>${a.request_count}</td>
                             <td>${a.error_count}</td>
                             <td>${a.last_used_at ? new Date(a.last_used_at).toLocaleString() : '-'}</td>
                             <td>
-                                <div style="display:flex;gap:6px;">
-                                    <button class="btn btn-secondary btn-sm" onclick="refreshUsage('${a.id}')" title="刷新配额">🔄</button>
+                                <div class="row-actions">
+                                    <button class="btn btn-secondary btn-sm" onclick="refreshUsage('${a.id}', this)" title="刷新配额">REFRESH</button>
                                     ${a.status === 'disabled'
-                            ? `<button class="btn btn-success btn-sm" onclick="enableAccount('${a.id}')">启用</button>`
-                            : `<button class="btn btn-secondary btn-sm" onclick="disableAccount('${a.id}')">禁用</button>`}
-                                    <button class="btn btn-danger btn-sm" onclick="removeAccount('${a.id}')">删除</button>
+                                        ? `<button class="btn btn-success btn-sm" onclick="enableAccount('${a.id}', this)">ENABLE</button>`
+                                        : `<button class="btn btn-secondary btn-sm" onclick="disableAccount('${a.id}', this)">DISABLE</button>`}
+                                    <button class="btn btn-danger btn-sm" onclick="removeAccount('${a.id}', this)">DELETE</button>
                                 </div>
                             </td>
                         </tr>`;
-                }).join('')}</tbody>
-                </table>`;
-            } catch (e) { console.error(e); }
+                    }).join('')}</tbody>
+                </table></div>`;
+            } catch (e) {
+                console.error(e);
+                showToast('加载账号失败', 'error');
+            }
         }
 
-        async function loadLogs() {
-            try {
-                const logs = await fetchApi('/api/logs');
-                const container = document.getElementById('logs-table');
+        async function loadLogs(button) {
+            const run = async () => {
+                try {
+                    const logs = await fetchApi('/api/logs');
+                    const container = document.getElementById('logs-table');
 
-                if (!logs || logs.length === 0) {
-                    container.innerHTML = '<div class="empty-state"><p>📭 暂无请求记录</p></div>';
-                    return;
+                    if (!logs || logs.length === 0) {
+                        container.innerHTML = '<div class="empty-state">[ EMPTY ] 暂无请求记录。</div>';
+                        return;
+                    }
+
+                    container.innerHTML = `<div class="table-wrap"><table>
+                        <thead><tr><th>Time</th><th>Account</th><th>Model</th><th>Input</th><th>Output</th><th>Duration</th><th>Status</th></tr></thead>
+                        <tbody>${logs.map(l => `<tr>
+                            <td>${new Date(l.timestamp).toLocaleString()}</td>
+                            <td>${escapeHtml(l.account_name)}</td>
+                            <td>${escapeHtml(l.model)}</td>
+                            <td>${l.input_tokens}</td>
+                            <td>${l.output_tokens < 0 ? '-' : l.output_tokens}</td>
+                            <td>${l.duration_ms}ms</td>
+                            <td>${l.success
+                                ? '<span class="status-badge status-active">[SUCCESS]</span>'
+                                : `<span class="status-badge status-invalid" title="${escapeHtml(l.error || '')}">[FAILED]</span>`}</td>
+                        </tr>`).join('')}</tbody>
+                    </table></div>`;
+                } catch (e) {
+                    console.error(e);
+                    showToast('加载日志失败', 'error');
                 }
+            };
 
-                container.innerHTML = `<table>
-                    <thead><tr><th>时间</th><th>账号</th><th>模型</th><th>输入</th><th>输出</th><th>耗时</th><th>状态</th></tr></thead>
-                    <tbody>${logs.map(l => `<tr>
-                        <td>${new Date(l.timestamp).toLocaleString()}</td>
-                        <td>${l.account_name}</td>
-                        <td style="font-size:12px;opacity:0.8">${l.model}</td>
-                        <td>${l.input_tokens}</td>
-                        <td>${l.output_tokens < 0 ? '-' : l.output_tokens}</td>
-                        <td>${l.duration_ms}ms</td>
-                        <td>${l.success
-                        ? '<span class="status-badge status-active">成功</span>'
-                        : `<span class="status-badge status-invalid" title="${l.error || ''}">失败</span>`}</td>
-                    </tr>`).join('')}</tbody>
-                </table>`;
-            } catch (e) { console.error(e); }
+            if (button) return withButtonLoading(button, 'LOADING...', run);
+            return run();
         }
 
         async function loadStrategy() {
             try {
                 const data = await fetchApi('/api/strategy');
                 document.getElementById('strategy').value = data.strategy;
-            } catch (e) { console.error(e); }
+            } catch (e) {
+                console.error(e);
+            }
         }
 
         async function setStrategy(value) {
-            try { await fetchApi('/api/strategy', { method: 'POST', body: JSON.stringify({ strategy: value }) }); }
-            catch (e) { alert('设置失败: ' + e.message); }
+            try {
+                await fetchApi('/api/strategy', { method: 'POST', body: JSON.stringify({ strategy: value }) });
+                showToast('策略已更新', 'success');
+            } catch (e) {
+                console.error(e);
+                showToast(`设置失败: ${extractErrorMessage(e)}`, 'error');
+            }
         }
 
-        async function refreshUsage(id) {
-            try {
-                const usage = await fetchApi(`/api/accounts/${id}/usage/refresh`, { method: 'POST' });
-                usageCache[id] = usage;
-                loadAccounts();
-            } catch (e) { alert('刷新配额失败: ' + e.message); }
+        async function refreshUsage(id, button) {
+            await withButtonLoading(button, 'SYNC...', async () => {
+                try {
+                    const usage = await fetchApi(`/api/accounts/${id}/usage/refresh`, { method: 'POST' });
+                    usageCache[id] = usage;
+                    await loadAccounts();
+                    showToast('配额已刷新', 'success');
+                } catch (e) {
+                    showToast(`刷新配额失败: ${extractErrorMessage(e)}`, 'error');
+                }
+            });
         }
 
-        async function refreshAllUsage() {
-            try {
-                const results = await fetchApi('/api/usage/refresh', { method: 'POST' });
-                results.forEach(r => { if (r.success) usageCache[r.id] = r.usage; });
-                loadAccounts();
-                alert('配额刷新完成');
-            } catch (e) { alert('刷新失败: ' + e.message); }
+        async function refreshAllUsage(button) {
+            await withButtonLoading(button, 'SYNC ALL...', async () => {
+                try {
+                    const results = await fetchApi('/api/usage/refresh', { method: 'POST' });
+                    results.forEach(r => {
+                        if (r.success) usageCache[r.id] = r.usage;
+                    });
+                    await loadAccounts();
+                    showToast('全部配额刷新完成', 'success');
+                } catch (e) {
+                    showToast(`刷新失败: ${extractErrorMessage(e)}`, 'error');
+                }
+            });
         }
 
         function switchTab(tab) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => { c.style.display = 'none'; c.classList.remove('active'); });
-            document.querySelector(`.tab[onclick*="${tab}"]`).classList.add('active');
-            document.getElementById('tab-' + tab).style.display = 'block';
+            document.querySelectorAll('.tab-content').forEach(c => {
+                c.style.display = 'none';
+                c.classList.remove('active');
+            });
+
+            const target = document.querySelector(`.tab[data-tab="${tab}"]`);
+            if (target) target.classList.add('active');
+
+            const content = document.getElementById('tab-' + tab);
+            if (content) {
+                content.style.display = 'block';
+                content.classList.add('active');
+            }
+
             if (tab === 'logs') loadLogs();
         }
 
-        function showAddModal() { document.getElementById('addModal').classList.add('show'); }
-        function hideAddModal() { document.getElementById('addModal').classList.remove('show'); }
-        function showImportModal() { document.getElementById('importModal').classList.add('show'); }
-        function hideImportModal() { document.getElementById('importModal').classList.remove('show'); }
-        function toggleIdcFields() {
-            document.getElementById('idc-fields').style.display = document.getElementById('acc-auth').value === 'idc' ? 'block' : 'none';
+        function showAddModal() {
+            document.getElementById('addModal').classList.add('show');
         }
 
-        async function addAccount() {
+        function hideAddModal() {
+            document.getElementById('addModal').classList.remove('show');
+        }
+
+        function showImportModal() {
+            document.getElementById('importModal').classList.add('show');
+        }
+
+        function hideImportModal() {
+            document.getElementById('importModal').classList.remove('show');
+        }
+
+        function toggleIdcFields() {
+            document.getElementById('idc-fields').style.display =
+                document.getElementById('acc-auth').value === 'idc' ? 'block' : 'none';
+        }
+
+        async function addAccount(button) {
             const data = {
                 name: document.getElementById('acc-name').value || '未命名账号',
                 auth_method: document.getElementById('acc-auth').value,
@@ -950,61 +1343,145 @@
                 client_id: document.getElementById('acc-client-id').value || null,
                 client_secret: document.getElementById('acc-client-secret').value || null,
             };
-            if (!data.refresh_token) { alert('请填写 Refresh Token'); return; }
-            try {
-                await fetchApi('/api/accounts', { method: 'POST', body: JSON.stringify(data) });
-                hideAddModal(); refresh();
-            } catch (e) { alert('添加失败: ' + e.message); }
+
+            if (!data.refresh_token) {
+                showToast('请填写 Refresh Token', 'error');
+                return;
+            }
+
+            await withButtonLoading(button, 'CREATING...', async () => {
+                try {
+                    await fetchApi('/api/accounts', { method: 'POST', body: JSON.stringify(data) });
+                    hideAddModal();
+                    await refresh();
+                    showToast('账号添加成功', 'success');
+                } catch (e) {
+                    showToast(`添加失败: ${extractErrorMessage(e)}`, 'error');
+                }
+            });
         }
 
-        async function importAccount() {
+        async function importAccount(button) {
             const rawJson = document.getElementById('import-json').value.trim();
             const name = document.getElementById('import-name').value.trim() || null;
-            if (!rawJson) { alert('请粘贴 JSON 凭证'); return; }
-            try { JSON.parse(rawJson); } catch { alert('JSON 格式错误'); return; }
+            if (!rawJson) {
+                showToast('请粘贴 JSON 凭证', 'error');
+                return;
+            }
+
             try {
-                await fetchApi('/api/accounts/import', { method: 'POST', body: JSON.stringify({ raw_json: rawJson, name }) });
-                hideImportModal(); refresh(); alert('导入成功！');
-            } catch (e) { alert('导入失败: ' + e.message); }
+                JSON.parse(rawJson);
+            } catch {
+                showToast('JSON 格式错误', 'error');
+                return;
+            }
+
+            await withButtonLoading(button, 'IMPORTING...', async () => {
+                try {
+                    await fetchApi('/api/accounts/import', { method: 'POST', body: JSON.stringify({ raw_json: rawJson, name }) });
+                    hideImportModal();
+                    await refresh();
+                    showToast('导入成功', 'success');
+                } catch (e) {
+                    showToast(`导入失败: ${extractErrorMessage(e)}`, 'error');
+                }
+            });
         }
 
-        async function removeAccount(id) {
+        async function removeAccount(id, button) {
             if (!confirm('确定删除此账号？')) return;
-            try { await fetchApi(`/api/accounts/${id}`, { method: 'DELETE' }); refresh(); }
-            catch (e) { alert('删除失败: ' + e.message); }
+            await withButtonLoading(button, 'DELETING...', async () => {
+                try {
+                    await fetchApi(`/api/accounts/${id}`, { method: 'DELETE' });
+                    await refresh();
+                    showToast('账号已删除', 'success');
+                } catch (e) {
+                    showToast(`删除失败: ${extractErrorMessage(e)}`, 'error');
+                }
+            });
         }
 
-        async function enableAccount(id) {
-            try { await fetchApi(`/api/accounts/${id}/enable`, { method: 'POST' }); refresh(); }
-            catch (e) { alert('启用失败: ' + e.message); }
+        async function enableAccount(id, button) {
+            await withButtonLoading(button, 'ENABLING...', async () => {
+                try {
+                    await fetchApi(`/api/accounts/${id}/enable`, { method: 'POST' });
+                    await refresh();
+                    showToast('账号已启用', 'success');
+                } catch (e) {
+                    showToast(`启用失败: ${extractErrorMessage(e)}`, 'error');
+                }
+            });
         }
 
-        async function disableAccount(id) {
-            try { await fetchApi(`/api/accounts/${id}/disable`, { method: 'POST' }); refresh(); }
-            catch (e) { alert('禁用失败: ' + e.message); }
+        async function disableAccount(id, button) {
+            await withButtonLoading(button, 'DISABLING...', async () => {
+                try {
+                    await fetchApi(`/api/accounts/${id}/disable`, { method: 'POST' });
+                    await refresh();
+                    showToast('账号已禁用', 'info');
+                } catch (e) {
+                    showToast(`禁用失败: ${extractErrorMessage(e)}`, 'error');
+                }
+            });
         }
 
         async function loadUsageCache() {
             try {
                 usageCache = await fetchApi('/api/usage');
-            } catch (e) { 
-                console.error('加载配额缓存失败:', e); 
+            } catch (e) {
+                console.error('加载配额缓存失败:', e);
                 usageCache = {};
             }
         }
 
-        async function refresh() { 
-            loadStatus(); 
+        async function refresh() {
+            await loadStatus();
             await loadUsageCache();
-            loadAccounts(); 
-            loadStrategy(); 
+            await loadAccounts();
+            await loadStrategy();
         }
 
+        async function refreshManual(button) {
+            await withButtonLoading(button, 'REFRESHING...', async () => {
+                await refresh();
+                showToast('数据已刷新', 'success');
+            });
+        }
+
+        document.addEventListener('keydown', (e) => {
+            const activeTag = document.activeElement && document.activeElement.tagName;
+            const inInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeTag);
+
+            if (e.key === 'Escape') {
+                hideAddModal();
+                hideImportModal();
+                return;
+            }
+
+            if (!e.altKey) return;
+
+            if (e.key.toLowerCase() === 'r') {
+                e.preventDefault();
+                if (apiKey && !inInput) refresh().then(() => showToast('快捷刷新完成', 'success'));
+            }
+
+            if (e.key.toLowerCase() === 'a') {
+                e.preventDefault();
+                if (apiKey) showAddModal();
+            }
+        });
+
         (async () => {
-            if (await checkAuth()) { showMainPanel(); }
-            else { document.getElementById('loginPage').style.display = 'flex'; }
+            if (await checkAuth()) {
+                showMainPanel();
+            } else {
+                document.getElementById('loginPage').style.display = 'flex';
+            }
         })();
-        setInterval(() => { if (apiKey) loadStatus(); }, 5000);
+
+        setInterval(() => {
+            if (apiKey) loadStatus();
+        }, 5000);
     </script>
 </body>
 

@@ -1,369 +1,685 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AWS Event Stream Viewer</title>
+    <title>AWS Event Stream Terminal Viewer</title>
+    <link rel="icon" type="image/svg+xml" href="../assets/icon.svg">
     <style>
+        @font-face {
+            font-family: 'FusionPixel';
+            src: url('../assets/fonts/fusion-pixel-12px-monospaced-zh_hans.woff2') format('woff2'),
+                url('https://fusion-pixel-font.takwolf.com/fusion-pixel-12px-monospaced-zh_hans.otf.woff2') format('woff2');
+            font-display: swap;
+        }
+
+        :root {
+            --bg: #0b0a09;
+            --panel: #17140f;
+            --panel-2: #1d1811;
+            --amber: #ffb347;
+            --amber-dim: #b88a4b;
+            --amber-glow: rgba(255, 179, 71, 0.25);
+            --text: #f4d19b;
+            --text-dim: #b99258;
+            --ok: #57d38c;
+            --warn: #ffd166;
+            --err: #ff6b6b;
+            --line: rgba(255, 179, 71, 0.12);
+            --border: rgba(255, 179, 71, 0.38);
+            --border-strong: rgba(255, 179, 71, 0.68);
+            --radius: 4px;
+            --font-main: 'FusionPixel', 'Noto Sans Mono CJK SC', 'Sarasa Mono SC', 'PingFang SC', 'Microsoft YaHei', monospace;
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
         }
+
+        html,
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: #0d1117;
-            color: #c9d1d9;
-            min-height: 100vh;
-            padding: 20px;
+            min-height: 100%;
         }
+
+        body {
+            background-color: var(--bg);
+            background-image:
+                linear-gradient(rgba(255, 179, 71, 0.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 179, 71, 0.08) 1px, transparent 1px),
+                radial-gradient(circle at 50% 0%, rgba(255, 179, 71, 0.08), transparent 45%),
+                linear-gradient(180deg, #0f0d0a 0%, #090806 100%);
+            background-size: 22px 22px, 22px 22px, 100% 100%, 100% 100%;
+            color: var(--text);
+            font-family: var(--font-main);
+            padding: 18px;
+            image-rendering: pixelated;
+            letter-spacing: 0.02em;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background: repeating-linear-gradient(to bottom,
+                    rgba(0, 0, 0, 0.18) 0,
+                    rgba(0, 0, 0, 0.18) 1px,
+                    transparent 2px,
+                    transparent 4px);
+            opacity: 0.45;
+            mix-blend-mode: multiply;
+            z-index: 1;
+        }
+
+        .container,
+        .toast-root {
+            position: relative;
+            z-index: 2;
+        }
+
         .container {
             max-width: 1400px;
             margin: 0 auto;
         }
+
+        .surface {
+            background: linear-gradient(180deg, rgba(255, 179, 71, 0.06), transparent 18%), var(--panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: 0 0 0 1px rgba(255, 179, 71, 0.08), 0 20px 40px rgba(0, 0, 0, 0.45);
+        }
+
+        .title-shell {
+            margin-bottom: 14px;
+            padding: 16px;
+        }
+
+        .title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
         h1 {
-            color: #58a6ff;
-            margin-bottom: 20px;
+            font-weight: 400;
             font-size: 24px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--amber);
+            text-shadow: 0 0 12px var(--amber-glow);
         }
-        .input-section {
-            margin-bottom: 20px;
+
+        .subtitle {
+            color: var(--text-dim);
+            font-size: 12px;
+            margin-top: 8px;
         }
-        .input-section label {
+
+        .chip {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 6px 10px;
+            font-size: 11px;
+            color: var(--text-dim);
+            background: rgba(255, 179, 71, 0.06);
+            text-transform: uppercase;
+        }
+
+        .chip strong {
+            color: var(--amber);
+            font-weight: 400;
+        }
+
+        .panel {
+            padding: 14px;
+            margin-bottom: 14px;
+        }
+
+        label {
             display: block;
+            color: var(--text-dim);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
             margin-bottom: 8px;
-            color: #8b949e;
-            font-size: 14px;
         }
+
         .input-controls {
             display: flex;
-            gap: 10px;
+            gap: 8px;
             margin-bottom: 10px;
             flex-wrap: wrap;
+            align-items: center;
         }
-        .format-select {
-            padding: 8px 16px;
-            border: 1px solid #30363d;
-            border-radius: 6px;
-            background: #21262d;
-            color: #c9d1d9;
-            font-size: 14px;
+
+        textarea,
+        select,
+        button {
+            font-family: inherit;
+            font-size: 12px;
         }
+
+        textarea,
+        select {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: rgba(0, 0, 0, 0.28);
+            color: var(--text);
+            min-height: 38px;
+            padding: 10px 12px;
+            outline: none;
+        }
+
         textarea {
             width: 100%;
-            height: 200px;
-            padding: 12px;
-            border: 1px solid #30363d;
-            border-radius: 6px;
-            background: #161b22;
-            color: #c9d1d9;
-            font-family: 'SF Mono', Monaco, 'Courier New', monospace;
-            font-size: 13px;
+            min-height: 180px;
+            line-height: 1.55;
             resize: vertical;
         }
-        textarea:focus {
-            outline: none;
-            border-color: #58a6ff;
+
+        textarea::placeholder {
+            color: #8d6a3b;
         }
+
+        textarea:focus,
+        select:focus {
+            border-color: var(--border-strong);
+            box-shadow: 0 0 0 2px rgba(255, 179, 71, 0.18);
+        }
+
         .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 6px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            min-height: 38px;
+            padding: 10px 14px;
+            color: var(--text);
+            background: linear-gradient(180deg, rgba(255, 179, 71, 0.1), rgba(255, 179, 71, 0.03));
+            text-transform: uppercase;
             cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.2s;
+            transition: border-color 120ms steps(2, end), color 120ms steps(2, end), transform 120ms steps(2, end);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
+
+        .btn:hover {
+            border-color: var(--border-strong);
+            color: var(--amber);
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: wait;
+            transform: none;
+        }
+
         .btn-primary {
-            background: #238636;
-            color: white;
+            border-color: var(--border-strong);
+            color: var(--amber);
+            background: linear-gradient(180deg, rgba(255, 179, 71, 0.22), rgba(255, 179, 71, 0.08));
         }
-        .btn-primary:hover {
-            background: #2ea043;
-        }
+
         .btn-secondary {
-            background: #21262d;
-            color: #c9d1d9;
-            border: 1px solid #30363d;
+            color: var(--text-dim);
+            background: rgba(255, 179, 71, 0.04);
         }
-        .btn-secondary:hover {
-            background: #30363d;
-        }
-        .results {
-            margin-top: 20px;
-        }
-        .stats {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-        .stat-card {
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 6px;
-            padding: 16px 20px;
-            min-width: 150px;
-        }
-        .stat-card .label {
-            color: #8b949e;
+
+        .error-box {
+            display: none;
+            margin-bottom: 14px;
+            border: 1px solid rgba(255, 107, 107, 0.56);
+            border-radius: var(--radius);
+            background: rgba(255, 107, 107, 0.12);
+            color: var(--err);
+            padding: 10px 12px;
             font-size: 12px;
-            margin-bottom: 4px;
         }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(160px, 1fr));
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .stat-card {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--panel-2);
+            padding: 11px;
+            min-height: 78px;
+        }
+
+        .stat-card .label {
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
         .stat-card .value {
-            color: #58a6ff;
-            font-size: 24px;
-            font-weight: 600;
+            color: var(--amber);
+            font-size: 20px;
+            line-height: 1.2;
+            text-shadow: 0 0 10px var(--amber-glow);
+            word-break: break-word;
         }
+
         .message-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
+            display: grid;
+            gap: 10px;
         }
+
         .message {
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 8px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: rgba(0, 0, 0, 0.22);
             overflow: hidden;
         }
+
         .message-header {
             display: flex;
+            align-items: center;
             justify-content: space-between;
-            align-items: center;
-            padding: 12px 16px;
-            background: #21262d;
-            border-bottom: 1px solid #30363d;
+            gap: 10px;
+            padding: 10px 12px;
+            border-bottom: 1px solid transparent;
             cursor: pointer;
+            flex-wrap: wrap;
+            background: rgba(255, 179, 71, 0.05);
         }
+
+        .message.expanded .message-header {
+            border-bottom-color: var(--line);
+        }
+
         .message-header:hover {
-            background: #30363d;
+            background: rgba(255, 179, 71, 0.08);
         }
+
         .message-info {
-            display: flex;
-            gap: 12px;
+            display: inline-flex;
             align-items: center;
+            gap: 8px;
             flex-wrap: wrap;
         }
-        .message-index {
-            background: #30363d;
-            color: #8b949e;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-        .message-type {
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-        .message-type.event {
-            background: rgba(56, 139, 253, 0.15);
-            color: #58a6ff;
-        }
-        .message-type.error {
-            background: rgba(248, 81, 73, 0.15);
-            color: #f85149;
-        }
-        .message-type.exception {
-            background: rgba(210, 153, 34, 0.15);
-            color: #d29922;
-        }
-        .event-type {
-            color: #7ee787;
-            font-size: 13px;
-        }
+
+        .message-index,
+        .message-type,
+        .event-type,
         .message-size {
-            color: #8b949e;
-            font-size: 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 4px 8px;
+            font-size: 11px;
+            text-transform: uppercase;
+            white-space: nowrap;
         }
+
+        .message-index,
+        .message-size {
+            color: var(--text-dim);
+        }
+
+        .message-type.event {
+            color: var(--ok);
+            border-color: rgba(87, 211, 140, 0.6);
+            background: rgba(87, 211, 140, 0.1);
+        }
+
+        .message-type.error {
+            color: var(--err);
+            border-color: rgba(255, 107, 107, 0.6);
+            background: rgba(255, 107, 107, 0.1);
+        }
+
+        .message-type.exception {
+            color: var(--warn);
+            border-color: rgba(255, 209, 102, 0.6);
+            background: rgba(255, 209, 102, 0.1);
+        }
+
+        .event-type {
+            color: var(--amber);
+            border-color: rgba(255, 179, 71, 0.6);
+            background: rgba(255, 179, 71, 0.08);
+        }
+
         .expand-icon {
-            color: #8b949e;
-            transition: transform 0.2s;
+            color: var(--text-dim);
+            transition: transform 120ms steps(2, end);
         }
+
         .message.expanded .expand-icon {
             transform: rotate(90deg);
         }
+
         .message-content {
             display: none;
-            padding: 16px;
+            padding: 12px;
         }
+
         .message.expanded .message-content {
             display: block;
         }
+
         .section-title {
-            color: #8b949e;
-            font-size: 12px;
-            font-weight: 500;
-            margin-bottom: 8px;
+            color: var(--text-dim);
             text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 11px;
+            margin-bottom: 8px;
         }
+
+        .table-wrap {
+            width: 100%;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: 12px;
+        }
+
         .headers-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 16px;
-            font-size: 13px;
+            min-width: 620px;
         }
+
         .headers-table th,
         .headers-table td {
             text-align: left;
-            padding: 8px 12px;
-            border-bottom: 1px solid #21262d;
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--line);
+            font-size: 11px;
+            white-space: nowrap;
         }
+
         .headers-table th {
-            color: #8b949e;
-            font-weight: 500;
-            background: #0d1117;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            background: rgba(255, 179, 71, 0.06);
         }
+
         .headers-table td {
-            font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+            color: var(--text);
         }
+
         .header-name {
-            color: #ff7b72;
+            color: var(--warn);
         }
+
         .header-type {
-            color: #d2a8ff;
+            color: var(--amber);
         }
+
         .header-value {
-            color: #a5d6ff;
+            color: #ffd8a3;
         }
+
         .payload-container {
-            background: #0d1117;
-            border-radius: 6px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
             overflow: hidden;
+            background: rgba(0, 0, 0, 0.2);
         }
+
         .payload-tabs {
             display: flex;
-            border-bottom: 1px solid #21262d;
+            flex-wrap: wrap;
+            gap: 4px;
+            border-bottom: 1px solid var(--line);
+            padding: 6px;
+            background: rgba(255, 179, 71, 0.05);
         }
+
         .payload-tab {
-            padding: 8px 16px;
-            background: transparent;
-            border: none;
-            color: #8b949e;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            min-height: 30px;
+            padding: 6px 10px;
+            color: var(--text-dim);
+            background: rgba(255, 179, 71, 0.04);
             cursor: pointer;
-            font-size: 13px;
-            border-bottom: 2px solid transparent;
-            margin-bottom: -1px;
+            text-transform: uppercase;
+            font-size: 11px;
         }
+
         .payload-tab.active {
-            color: #58a6ff;
-            border-bottom-color: #58a6ff;
+            color: var(--amber);
+            border-color: var(--border-strong);
+            background: rgba(255, 179, 71, 0.11);
         }
+
         .payload-content {
-            padding: 12px;
-            font-family: 'SF Mono', Monaco, 'Courier New', monospace;
-            font-size: 13px;
-            overflow-x: auto;
-            max-height: 400px;
-            overflow-y: auto;
+            padding: 10px;
+            max-height: 380px;
+            overflow: auto;
         }
-        .payload-json {
+
+        .payload-json,
+        .payload-raw,
+        .payload-hex {
             white-space: pre-wrap;
             word-break: break-word;
+            font-size: 11px;
+            line-height: 1.55;
+            color: var(--text);
         }
-        .payload-raw {
-            white-space: pre;
-            color: #8b949e;
-        }
+
+        .payload-raw,
         .payload-hex {
+            font-family: var(--font-main);
+        }
+
+        .payload-hex {
+            font-size: 10px;
             white-space: pre;
-            color: #8b949e;
-            font-size: 12px;
         }
+
         .json-key {
-            color: #ff7b72;
+            color: var(--warn);
         }
+
         .json-string {
-            color: #a5d6ff;
+            color: #ffddad;
         }
+
         .json-number {
-            color: #79c0ff;
+            color: #ffd166;
         }
+
         .json-boolean {
-            color: #ff7b72;
+            color: var(--ok);
         }
+
         .json-null {
-            color: #8b949e;
+            color: var(--text-dim);
         }
-        .error-box {
-            background: rgba(248, 81, 73, 0.1);
-            border: 1px solid rgba(248, 81, 73, 0.4);
-            border-radius: 6px;
-            padding: 12px 16px;
-            color: #f85149;
-            margin-bottom: 16px;
-        }
-        .hex-view {
-            display: grid;
-            grid-template-columns: 80px 1fr 1fr;
-            gap: 8px;
-            font-family: 'SF Mono', Monaco, 'Courier New', monospace;
-            font-size: 12px;
-        }
+
         .hex-offset {
-            color: #8b949e;
+            color: var(--text-dim);
         }
+
         .hex-bytes {
-            color: #7ee787;
+            color: var(--amber);
         }
+
         .hex-ascii {
-            color: #d2a8ff;
+            color: #ffd39a;
         }
-        .raw-section {
-            margin-top: 20px;
-            padding: 16px;
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 8px;
-        }
+
         .raw-section h3 {
-            color: #8b949e;
-            font-size: 14px;
-            margin-bottom: 12px;
+            color: var(--amber);
+            font-size: 13px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
         }
-        .copy-btn {
-            padding: 4px 8px;
+
+        .raw-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
+        .hotkeys {
+            margin-top: 8px;
+            color: var(--text-dim);
+            font-size: 11px;
+        }
+
+        .kbd {
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            padding: 1px 5px;
+            color: var(--amber);
+            background: rgba(255, 179, 71, 0.08);
+            font-size: 10px;
+        }
+
+        .toast-root {
+            position: fixed;
+            right: 14px;
+            top: 14px;
+            width: min(340px, calc(100vw - 28px));
+            z-index: 1200;
+            display: grid;
+            gap: 8px;
+        }
+
+        .toast {
+            border: 1px solid var(--border);
+            border-left-width: 4px;
+            border-radius: var(--radius);
+            padding: 10px 12px;
+            background: var(--panel);
+            color: var(--text);
             font-size: 12px;
-            margin-left: 8px;
+            box-shadow: 0 0 0 1px rgba(255, 179, 71, 0.08), 0 16px 32px rgba(0, 0, 0, 0.4);
+            animation: toastIn 160ms steps(5, end);
+        }
+
+        .toast.info {
+            border-left-color: var(--amber);
+        }
+
+        .toast.success {
+            border-left-color: var(--ok);
+            color: var(--ok);
+        }
+
+        .toast.error {
+            border-left-color: var(--err);
+            color: var(--err);
+        }
+
+        @keyframes toastIn {
+            from {
+                opacity: 0;
+                transform: translateX(8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @media (max-width: 1024px) {
+            body {
+                padding: 14px;
+            }
+
+            .stats {
+                grid-template-columns: repeat(2, minmax(120px, 1fr));
+            }
+        }
+
+        @media (max-width: 640px) {
+            h1 {
+                font-size: 19px;
+            }
+
+            .title-shell,
+            .panel {
+                padding: 10px;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+
+            .input-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .input-controls .btn,
+            .input-controls select {
+                width: 100%;
+            }
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>AWS Event Stream Viewer</h1>
 
-        <div class="input-section">
-            <label>粘贴二进制数据（支持 Hex / Base64 格式）</label>
+<body>
+    <div class="toast-root" id="toastRoot" aria-live="polite" aria-atomic="false"></div>
+
+    <div class="container">
+        <div class="title-shell surface">
+            <div class="title-row">
+                <div>
+                    <h1>AWS Event Stream Terminal Viewer</h1>
+                    <div class="subtitle">Binary Frame Inspector | CRC / Header / Payload Decode</div>
+                </div>
+                <div class="chip"><strong>HOTKEY</strong> <span class="kbd">Ctrl+Enter</span> Parse | <span class="kbd">Alt+L</span> Example</div>
+            </div>
+        </div>
+
+        <div class="panel surface">
+            <label for="inputData">粘贴二进制数据（支持 Hex / Base64）</label>
             <div class="input-controls">
                 <select id="inputFormat" class="format-select">
-                    <option value="auto">自动检测</option>
+                    <option value="auto">Auto Detect</option>
                     <option value="hex">Hex</option>
                     <option value="base64">Base64</option>
                 </select>
-                <button class="btn btn-primary" onclick="parseInput()">解析</button>
-                <button class="btn btn-secondary" onclick="clearAll()">清空</button>
-                <button class="btn btn-secondary" onclick="loadExample()">加载示例</button>
+                <button class="btn btn-primary" onclick="parseInput(this)">Parse</button>
+                <button class="btn btn-secondary" onclick="clearAll()">Clear</button>
+                <button class="btn btn-secondary" onclick="loadExample()">Load Example</button>
             </div>
-            <textarea id="inputData" placeholder="粘贴 Hex 数据 (如: 00 00 00 3e 00 00 00 1d...) 或 Base64 编码数据..."></textarea>
+            <textarea id="inputData" placeholder="粘贴 Hex 数据（如 00 00 00 3e ...）或 Base64 数据"></textarea>
+            <div class="hotkeys">提示：可直接粘贴 HTTP 抓包中的 Event Stream 字节序列。</div>
         </div>
 
-        <div id="error" class="error-box" style="display: none;"></div>
+        <div id="error" class="error-box"></div>
 
-        <div class="results" id="results" style="display: none;">
+        <div class="panel surface results" id="results" style="display: none;">
             <div class="stats" id="stats"></div>
             <div class="message-list" id="messageList"></div>
         </div>
 
-        <div class="raw-section" id="rawSection" style="display: none;">
-            <h3>原始字节数据 <button class="btn btn-secondary copy-btn" onclick="copyRawHex()">复制 Hex</button></h3>
+        <div class="panel surface raw-section" id="rawSection" style="display: none;">
+            <div class="raw-header">
+                <h3>Raw Byte Stream</h3>
+                <button class="btn btn-secondary" onclick="copyRawHex()">Copy Hex</button>
+            </div>
             <div class="payload-hex" id="rawHex"></div>
         </div>
     </div>
 
     <script>
-        // CRC32 (IEEE/ISO-HDLC) 实现
         const CRC32_TABLE = (() => {
             const table = new Uint32Array(256);
             for (let i = 0; i < 256; i++) {
@@ -376,15 +692,6 @@
             return table;
         })();
 
-        function crc32(data) {
-            let crc = 0xFFFFFFFF;
-            for (let i = 0; i < data.length; i++) {
-                crc = CRC32_TABLE[(crc ^ data[i]) & 0xFF] ^ (crc >>> 8);
-            }
-            return (crc ^ 0xFFFFFFFF) >>> 0;
-        }
-
-        // 值类型定义
         const VALUE_TYPES = {
             0: { name: 'BoolTrue', size: 0 },
             1: { name: 'BoolFalse', size: 0 },
@@ -398,20 +705,60 @@
             9: { name: 'UUID', size: 16 }
         };
 
-        // 输入格式检测
+        let parsedData = null;
+
+        function showToast(message, type = 'info', duration = 2600) {
+            const root = document.getElementById('toastRoot');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            root.appendChild(toast);
+            window.setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(8px)';
+                window.setTimeout(() => toast.remove(), 180);
+            }, duration);
+        }
+
+        function setButtonLoading(button, loading, text = 'PROCESSING...') {
+            if (!button) return;
+            if (loading) {
+                button.dataset.originalText = button.textContent;
+                button.textContent = text;
+                button.disabled = true;
+            } else {
+                button.textContent = button.dataset.originalText || button.textContent;
+                button.disabled = false;
+            }
+        }
+
+        function escapeHtml(text) {
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function crc32(data) {
+            let crc = 0xFFFFFFFF;
+            for (let i = 0; i < data.length; i++) {
+                crc = CRC32_TABLE[(crc ^ data[i]) & 0xFF] ^ (crc >>> 8);
+            }
+            return (crc ^ 0xFFFFFFFF) >>> 0;
+        }
+
         function detectFormat(input) {
             const cleaned = input.replace(/[\s\n\r]/g, '');
 
-            // 检测是否是Base64
             if (/^[A-Za-z0-9+/]+=*$/.test(cleaned) && cleaned.length % 4 === 0) {
-                // 尝试解码验证
                 try {
                     atob(cleaned);
                     return 'base64';
-                } catch {}
+                } catch { }
             }
 
-            // 检测是否是Hex
             if (/^[0-9A-Fa-f\s]+$/.test(input)) {
                 return 'hex';
             }
@@ -419,13 +766,9 @@
             return 'unknown';
         }
 
-        // 解析输入数据为字节数组
         function parseInputData(input, format) {
             const cleaned = input.trim();
-
-            if (format === 'auto') {
-                format = detectFormat(cleaned);
-            }
+            if (format === 'auto') format = detectFormat(cleaned);
 
             if (format === 'base64') {
                 try {
@@ -438,9 +781,7 @@
 
             if (format === 'hex') {
                 const hex = cleaned.replace(/[\s\n\r]/g, '').replace(/0x/gi, '');
-                if (hex.length % 2 !== 0) {
-                    throw new Error('Hex 数据长度必须是偶数');
-                }
+                if (hex.length % 2 !== 0) throw new Error('Hex 数据长度必须是偶数');
                 const bytes = new Uint8Array(hex.length / 2);
                 for (let i = 0; i < hex.length; i += 2) {
                     bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
@@ -451,7 +792,6 @@
             throw new Error('无法识别输入格式');
         }
 
-        // 读取大端序整数
         function readUint32BE(data, offset) {
             return (data[offset] << 24 | data[offset + 1] << 16 | data[offset + 2] << 8 | data[offset + 3]) >>> 0;
         }
@@ -461,33 +801,26 @@
         }
 
         function readInt64BE(data, offset) {
-            // JavaScript BigInt for 64-bit
-            let high = readUint32BE(data, offset);
-            let low = readUint32BE(data, offset + 4);
+            const high = readUint32BE(data, offset);
+            const low = readUint32BE(data, offset + 4);
             return BigInt(high) << 32n | BigInt(low);
         }
 
-        // 解析头部
         function parseHeaders(data, headerLength) {
             const headers = [];
             let offset = 0;
 
             while (offset < headerLength) {
-                // 读取名称长度
                 const nameLength = data[offset];
                 offset++;
 
-                if (nameLength === 0 || offset + nameLength > headerLength) {
-                    break;
-                }
+                if (nameLength === 0 || offset + nameLength > headerLength) break;
 
-                // 读取名称
                 const name = new TextDecoder().decode(data.slice(offset, offset + nameLength));
                 offset += nameLength;
 
                 if (offset >= headerLength) break;
 
-                // 读取值类型
                 const valueType = data[offset];
                 offset++;
 
@@ -495,50 +828,49 @@
                 let value;
                 let valueSize = typeInfo.size;
 
-                // 解析值
                 switch (valueType) {
-                    case 0: // BoolTrue
+                    case 0:
                         value = true;
                         break;
-                    case 1: // BoolFalse
+                    case 1:
                         value = false;
                         break;
-                    case 2: // Byte
+                    case 2:
                         value = data[offset];
                         offset++;
                         break;
-                    case 3: // Short
+                    case 3:
                         value = readUint16BE(data, offset);
                         offset += 2;
                         break;
-                    case 4: // Integer
+                    case 4:
                         value = readUint32BE(data, offset);
                         offset += 4;
                         break;
-                    case 5: // Long
+                    case 5:
                         value = readInt64BE(data, offset).toString();
                         offset += 8;
                         break;
-                    case 6: // ByteArray
+                    case 6:
                         valueSize = readUint16BE(data, offset);
                         offset += 2;
                         value = Array.from(data.slice(offset, offset + valueSize)).map(b => b.toString(16).padStart(2, '0')).join(' ');
                         offset += valueSize;
                         break;
-                    case 7: // String
+                    case 7:
                         valueSize = readUint16BE(data, offset);
                         offset += 2;
                         value = new TextDecoder().decode(data.slice(offset, offset + valueSize));
                         offset += valueSize;
                         break;
-                    case 8: // Timestamp
+                    case 8:
                         value = new Date(Number(readInt64BE(data, offset))).toISOString();
                         offset += 8;
                         break;
-                    case 9: // UUID
+                    case 9:
                         const uuidBytes = data.slice(offset, offset + 16);
                         value = Array.from(uuidBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-                        value = `${value.slice(0,8)}-${value.slice(8,12)}-${value.slice(12,16)}-${value.slice(16,20)}-${value.slice(20)}`;
+                        value = `${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20)}`;
                         offset += 16;
                         break;
                     default:
@@ -551,11 +883,8 @@
             return headers;
         }
 
-        // 解析单个消息帧
         function parseFrame(data, offset) {
-            if (data.length - offset < 16) {
-                return null;
-            }
+            if (data.length - offset < 16) return null;
 
             const totalLength = readUint32BE(data, offset);
             const headerLength = readUint32BE(data, offset + 4);
@@ -565,30 +894,23 @@
                 throw new Error(`消息长度异常: ${totalLength}`);
             }
 
-            if (data.length - offset < totalLength) {
-                return null;
-            }
+            if (data.length - offset < totalLength) return null;
 
-            // 验证 Prelude CRC
             const actualPreludeCrc = crc32(data.slice(offset, offset + 8));
             const preludeCrcValid = preludeCrc === actualPreludeCrc;
 
-            // 验证 Message CRC
             const messageCrc = readUint32BE(data, offset + totalLength - 4);
             const actualMessageCrc = crc32(data.slice(offset, offset + totalLength - 4));
             const messageCrcValid = messageCrc === actualMessageCrc;
 
-            // 解析头部
             const headersStart = offset + 12;
             const headersEnd = headersStart + headerLength;
             const headers = parseHeaders(data.slice(headersStart, headersEnd), headerLength);
 
-            // 提取 payload
             const payloadStart = headersEnd;
             const payloadEnd = offset + totalLength - 4;
             const payload = data.slice(payloadStart, payloadEnd);
 
-            // 获取消息类型
             const messageType = headers.find(h => h.name === ':message-type')?.value || 'event';
             const eventType = headers.find(h => h.name === ':event-type')?.value || '';
             const contentType = headers.find(h => h.name === ':content-type')?.value || 'application/json';
@@ -607,7 +929,6 @@
             };
         }
 
-        // 解析所有消息
         function parseAllMessages(data) {
             const messages = [];
             let offset = 0;
@@ -615,14 +936,10 @@
             while (offset < data.length) {
                 try {
                     const frame = parseFrame(data, offset);
-                    if (!frame) {
-                        break;
-                    }
+                    if (!frame) break;
                     messages.push(frame);
                     offset += frame.totalLength;
-                } catch (e) {
-                    console.error('Parse error at offset', offset, e);
-                    // 尝试跳过一个字节继续
+                } catch {
                     offset++;
                 }
             }
@@ -630,24 +947,15 @@
             return messages;
         }
 
-        // 格式化 JSON 带语法高亮
         function formatJson(obj, indent = 0) {
             const spaces = '  '.repeat(indent);
 
-            if (obj === null) {
-                return '<span class="json-null">null</span>';
-            }
-
-            if (typeof obj === 'boolean') {
-                return `<span class="json-boolean">${obj}</span>`;
-            }
-
-            if (typeof obj === 'number') {
-                return `<span class="json-number">${obj}</span>`;
-            }
+            if (obj === null) return '<span class="json-null">null</span>';
+            if (typeof obj === 'boolean') return `<span class="json-boolean">${obj}</span>`;
+            if (typeof obj === 'number') return `<span class="json-number">${obj}</span>`;
 
             if (typeof obj === 'string') {
-                const escaped = obj.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                const escaped = escapeHtml(obj);
                 return `<span class="json-string">"${escaped}"</span>`;
             }
 
@@ -670,7 +978,6 @@
             return String(obj);
         }
 
-        // 格式化 Hex 视图
         function formatHexView(data) {
             const lines = [];
             for (let i = 0; i < data.length; i += 16) {
@@ -689,15 +996,23 @@
                     }
                 }
 
-                lines.push(`<span class="hex-offset">${offset}</span>  <span class="hex-bytes">${bytes.join(' ')}</span>  <span class="hex-ascii">${ascii.join('')}</span>`);
+                lines.push(`<span class="hex-offset">${offset}</span>  <span class="hex-bytes">${bytes.join(' ')}</span>  <span class="hex-ascii">${escapeHtml(ascii.join(''))}</span>`);
             }
             return lines.join('\n');
         }
 
-        // 渲染单个消息
+        function crcStatus(crc) {
+            return crc.valid
+                ? '<span style="color: var(--ok);">[OK]</span>'
+                : `<span style="color: var(--err);">[FAIL] expected=${crc.expected.toString(16)} got=${crc.actual.toString(16)}</span>`;
+        }
+
         function renderMessage(message, index) {
-            const messageTypeClass = message.messageType === 'error' ? 'error' :
-                                    message.messageType === 'exception' ? 'exception' : 'event';
+            const messageTypeClass = message.messageType === 'error'
+                ? 'error'
+                : message.messageType === 'exception'
+                    ? 'exception'
+                    : 'event';
 
             let payloadText = '';
             let payloadJson = null;
@@ -706,61 +1021,65 @@
                 payloadText = new TextDecoder().decode(message.payload);
                 try {
                     payloadJson = JSON.parse(payloadText);
-                } catch {}
-            } catch {}
+                } catch { }
+            } catch { }
 
             const headersHtml = message.headers.map(h => `
                 <tr>
-                    <td><span class="header-name">${h.name}</span></td>
-                    <td><span class="header-type">${h.type}</span></td>
-                    <td><span class="header-value">${typeof h.value === 'string' ? h.value.replace(/</g, '&lt;').replace(/>/g, '&gt;') : h.value}</span></td>
+                    <td><span class="header-name">${escapeHtml(h.name)}</span></td>
+                    <td><span class="header-type">${escapeHtml(h.type)}</span></td>
+                    <td><span class="header-value">${typeof h.value === 'string' ? escapeHtml(h.value) : h.value}</span></td>
                 </tr>
             `).join('');
 
-            const crcStatus = (crc) => crc.valid
-                ? '<span style="color: #7ee787;">&#10003;</span>'
-                : `<span style="color: #f85149;">&#10007; (expected: ${crc.expected.toString(16)}, got: ${crc.actual.toString(16)})</span>`;
+            const payloadFallback = payloadText
+                ? `<span style="color: var(--text-dim);">${escapeHtml(payloadText)}</span>`
+                : '<span style="color: var(--text-dim);">(empty)</span>';
 
             return `
                 <div class="message" id="message-${index}">
                     <div class="message-header" onclick="toggleMessage(${index})">
                         <div class="message-info">
                             <span class="message-index">#${index + 1}</span>
-                            <span class="message-type ${messageTypeClass}">${message.messageType}</span>
-                            ${message.eventType ? `<span class="event-type">${message.eventType}</span>` : ''}
+                            <span class="message-type ${messageTypeClass}">${escapeHtml(String(message.messageType))}</span>
+                            ${message.eventType ? `<span class="event-type">${escapeHtml(String(message.eventType))}</span>` : ''}
                         </div>
-                        <div style="display: flex; align-items: center; gap: 12px;">
+                        <div class="message-info">
                             <span class="message-size">${message.totalLength} bytes</span>
-                            <span class="expand-icon">&#9654;</span>
+                            <span class="expand-icon">▶</span>
                         </div>
                     </div>
                     <div class="message-content">
-                        <div class="section-title">CRC 校验</div>
-                        <table class="headers-table" style="margin-bottom: 16px;">
-                            <tr><td>Prelude CRC</td><td>${crcStatus(message.preludeCrc)}</td></tr>
-                            <tr><td>Message CRC</td><td>${crcStatus(message.messageCrc)}</td></tr>
-                        </table>
+                        <div class="section-title">CRC Check</div>
+                        <div class="table-wrap">
+                            <table class="headers-table">
+                                <tbody>
+                                    <tr><td>Prelude CRC</td><td>${crcStatus(message.preludeCrc)}</td></tr>
+                                    <tr><td>Message CRC</td><td>${crcStatus(message.messageCrc)}</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
 
                         <div class="section-title">Headers (${message.headers.length})</div>
-                        <table class="headers-table">
-                            <thead>
-                                <tr><th>Name</th><th>Type</th><th>Value</th></tr>
-                            </thead>
-                            <tbody>
-                                ${headersHtml}
-                            </tbody>
-                        </table>
+                        <div class="table-wrap">
+                            <table class="headers-table">
+                                <thead>
+                                    <tr><th>Name</th><th>Type</th><th>Value</th></tr>
+                                </thead>
+                                <tbody>${headersHtml}</tbody>
+                            </table>
+                        </div>
 
                         <div class="section-title">Payload (${message.payload.length} bytes)</div>
                         <div class="payload-container">
                             <div class="payload-tabs">
-                                <button class="payload-tab active" onclick="switchPayloadTab(${index}, 'json')">JSON</button>
-                                <button class="payload-tab" onclick="switchPayloadTab(${index}, 'raw')">Raw</button>
-                                <button class="payload-tab" onclick="switchPayloadTab(${index}, 'hex')">Hex</button>
+                                <button class="payload-tab active" onclick="switchPayloadTab(${index}, 'json', this)">JSON</button>
+                                <button class="payload-tab" onclick="switchPayloadTab(${index}, 'raw', this)">Raw</button>
+                                <button class="payload-tab" onclick="switchPayloadTab(${index}, 'hex', this)">Hex</button>
                             </div>
                             <div class="payload-content">
-                                <div class="payload-json" id="payload-json-${index}">${payloadJson ? formatJson(payloadJson) : `<span style="color: #8b949e;">${payloadText.replace(/</g, '&lt;').replace(/>/g, '&gt;') || '(empty)'}</span>`}</div>
-                                <div class="payload-raw" id="payload-raw-${index}" style="display: none;">${payloadText.replace(/</g, '&lt;').replace(/>/g, '&gt;') || '(empty)'}</div>
+                                <div class="payload-json" id="payload-json-${index}">${payloadJson ? formatJson(payloadJson) : payloadFallback}</div>
+                                <div class="payload-raw" id="payload-raw-${index}" style="display: none;">${payloadText ? escapeHtml(payloadText) : '(empty)'}</div>
                                 <div class="payload-hex" id="payload-hex-${index}" style="display: none;">${formatHexView(message.payload)}</div>
                             </div>
                         </div>
@@ -769,14 +1088,14 @@
             `;
         }
 
-        let parsedData = null;
-
-        function parseInput() {
+        function parseInput(button) {
             const input = document.getElementById('inputData').value;
             const format = document.getElementById('inputFormat').value;
             const errorBox = document.getElementById('error');
             const resultsBox = document.getElementById('results');
             const rawSection = document.getElementById('rawSection');
+
+            setButtonLoading(button, true, 'PARSING...');
 
             errorBox.style.display = 'none';
             resultsBox.style.display = 'none';
@@ -785,6 +1104,8 @@
             if (!input.trim()) {
                 errorBox.textContent = '请输入数据';
                 errorBox.style.display = 'block';
+                setButtonLoading(button, false);
+                showToast('请输入待解析的数据', 'error');
                 return;
             }
 
@@ -792,7 +1113,6 @@
                 const data = parseInputData(input, format);
                 parsedData = data;
 
-                // 显示原始 Hex
                 document.getElementById('rawHex').innerHTML = formatHexView(data);
                 rawSection.style.display = 'block';
 
@@ -801,44 +1121,46 @@
                 if (messages.length === 0) {
                     errorBox.textContent = '未能解析出任何消息。请检查输入数据格式。';
                     errorBox.style.display = 'block';
+                    setButtonLoading(button, false);
+                    showToast('未解析到有效消息', 'error');
                     return;
                 }
 
-                // 统计
                 const eventTypes = {};
                 const messageTypes = {};
                 messages.forEach(m => {
                     messageTypes[m.messageType] = (messageTypes[m.messageType] || 0) + 1;
-                    if (m.eventType) {
-                        eventTypes[m.eventType] = (eventTypes[m.eventType] || 0) + 1;
-                    }
+                    if (m.eventType) eventTypes[m.eventType] = (eventTypes[m.eventType] || 0) + 1;
                 });
 
                 document.getElementById('stats').innerHTML = `
                     <div class="stat-card">
-                        <div class="label">总消息数</div>
+                        <div class="label">Message Count</div>
                         <div class="value">${messages.length}</div>
                     </div>
                     <div class="stat-card">
-                        <div class="label">总字节数</div>
+                        <div class="label">Total Bytes</div>
                         <div class="value">${data.length}</div>
                     </div>
                     <div class="stat-card">
-                        <div class="label">消息类型</div>
-                        <div class="value" style="font-size: 14px;">${Object.entries(messageTypes).map(([k, v]) => `${k}: ${v}`).join(', ')}</div>
+                        <div class="label">Message Types</div>
+                        <div class="value" style="font-size: 12px;">${escapeHtml(Object.entries(messageTypes).map(([k, v]) => `${k}:${v}`).join(' | '))}</div>
                     </div>
                     <div class="stat-card">
-                        <div class="label">事件类型</div>
-                        <div class="value" style="font-size: 14px;">${Object.entries(eventTypes).map(([k, v]) => `${k}: ${v}`).join(', ') || '-'}</div>
+                        <div class="label">Event Types</div>
+                        <div class="value" style="font-size: 12px;">${escapeHtml(Object.entries(eventTypes).map(([k, v]) => `${k}:${v}`).join(' | ') || '-')}</div>
                     </div>
                 `;
 
                 document.getElementById('messageList').innerHTML = messages.map((m, i) => renderMessage(m, i)).join('');
                 resultsBox.style.display = 'block';
-
+                showToast(`解析完成，共 ${messages.length} 条消息`, 'success');
             } catch (e) {
                 errorBox.textContent = '解析错误: ' + e.message;
                 errorBox.style.display = 'block';
+                showToast('解析失败: ' + e.message, 'error', 3200);
+            } finally {
+                setButtonLoading(button, false);
             }
         }
 
@@ -847,10 +1169,10 @@
             msg.classList.toggle('expanded');
         }
 
-        function switchPayloadTab(index, tab) {
+        function switchPayloadTab(index, tab, button) {
             const tabs = document.querySelectorAll(`#message-${index} .payload-tab`);
             tabs.forEach(t => t.classList.remove('active'));
-            event.target.classList.add('active');
+            if (button) button.classList.add('active');
 
             document.getElementById(`payload-json-${index}`).style.display = tab === 'json' ? 'block' : 'none';
             document.getElementById(`payload-raw-${index}`).style.display = tab === 'raw' ? 'block' : 'none';
@@ -863,19 +1185,23 @@
             document.getElementById('results').style.display = 'none';
             document.getElementById('rawSection').style.display = 'none';
             parsedData = null;
+            showToast('已清空', 'info');
         }
 
         function copyRawHex() {
-            if (!parsedData) return;
+            if (!parsedData) {
+                showToast('没有可复制的数据', 'error');
+                return;
+            }
             const hex = Array.from(parsedData).map(b => b.toString(16).padStart(2, '0')).join(' ');
             navigator.clipboard.writeText(hex).then(() => {
-                alert('已复制到剪贴板');
+                showToast('Hex 已复制到剪贴板', 'success');
+            }).catch(() => {
+                showToast('复制失败，请手动复制', 'error');
             });
         }
 
         function loadExample() {
-            // 构造一个示例事件流消息
-            // 这是一个简单的 assistantResponseEvent 消息
             const example = `
 00 00 00 8f 00 00 00 47 7d 83 6e 75 0d 3a 6d 65
 73 73 61 67 65 2d 74 79 70 65 07 00 05 65 76 65
@@ -890,7 +1216,22 @@ c7 8d c2 bc
             `.trim();
             document.getElementById('inputData').value = example;
             document.getElementById('inputFormat').value = 'hex';
+            showToast('示例已加载', 'info');
         }
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                const parseBtn = document.querySelector('.btn-primary');
+                parseInput(parseBtn);
+            }
+
+            if (e.altKey && e.key.toLowerCase() === 'l') {
+                e.preventDefault();
+                loadExample();
+            }
+        });
     </script>
 </body>
+
 </html>
