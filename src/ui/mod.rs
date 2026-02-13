@@ -108,10 +108,7 @@ async fn font_fusion_pixel() -> impl IntoResponse {
     (
         [
             (header::CONTENT_TYPE, "font/woff2"),
-            (
-                header::CACHE_CONTROL,
-                "public, max-age=31536000, immutable",
-            ),
+            (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
         ],
         FUSION_PIXEL_FONT_WOFF2,
     )
@@ -357,6 +354,7 @@ async fn set_strategy(
         "round-robin" => SelectionStrategy::RoundRobin,
         "random" => SelectionStrategy::Random,
         "least-used" => SelectionStrategy::LeastUsed,
+        "sequential-exhaust" => SelectionStrategy::SequentialExhaust,
         _ => {
             return (
                 StatusCode::BAD_REQUEST,

@@ -32,7 +32,7 @@ use super::types::{
 /// OpenAI 格式请求拦截 - 返回错误提示
 pub async fn openai_chat_completions() -> impl IntoResponse {
     tracing::warn!("Received OpenAI format request: POST /v1/chat/completions");
-    
+
     (
         StatusCode::BAD_REQUEST,
         Json(ErrorResponse::new(
@@ -289,13 +289,13 @@ async fn handle_stream_request(
                     || error_msg.contains("MONTHLY_REQUEST_COUNT")
                     || error_msg.contains("reached the limit");
 
-                if is_suspended || is_quota_exceeded {
+                if is_suspended {
                     pool.mark_invalid(id).await;
-                    if is_quota_exceeded {
-                        tracing::warn!("账号 {} 已被标记为失效（月度配额耗尽）", id);
-                    } else {
-                        tracing::warn!("账号 {} 已被标记为失效（暂停）", id);
-                    }
+                    tracing::warn!("账号 {} 已自动禁用（403/suspended）", id);
+                } else if is_quota_exceeded {
+                    let next_reset = pool.get_account_usage(id).await.and_then(|u| u.next_reset);
+                    pool.mark_exhausted(id, next_reset).await;
+                    tracing::warn!("账号 {} 已被标记为配额耗尽", id);
                 } else {
                     pool.record_error(id, is_rate_limit).await;
                     tracing::warn!("账号 {} 记录错误，限流: {}", id, is_rate_limit);
@@ -568,13 +568,13 @@ async fn handle_non_stream_request(
                     || error_msg.contains("MONTHLY_REQUEST_COUNT")
                     || error_msg.contains("reached the limit");
 
-                if is_suspended || is_quota_exceeded {
+                if is_suspended {
                     pool.mark_invalid(id).await;
-                    if is_quota_exceeded {
-                        tracing::warn!("账号 {} 已被标记为失效（月度配额耗尽）", id);
-                    } else {
-                        tracing::warn!("账号 {} 已被标记为失效（暂停）", id);
-                    }
+                    tracing::warn!("账号 {} 已自动禁用（403/suspended）", id);
+                } else if is_quota_exceeded {
+                    let next_reset = pool.get_account_usage(id).await.and_then(|u| u.next_reset);
+                    pool.mark_exhausted(id, next_reset).await;
+                    tracing::warn!("账号 {} 已被标记为配额耗尽", id);
                 } else {
                     pool.record_error(id, is_rate_limit).await;
                     tracing::warn!("账号 {} 记录错误，限流: {}", id, is_rate_limit);

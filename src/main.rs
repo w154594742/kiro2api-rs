@@ -17,6 +17,7 @@ use kiro::token_manager::TokenManager;
 use model::arg::Args;
 use model::config::Config;
 use pool::{Account, AccountPool};
+use tokio::time::{interval, Duration};
 
 #[tokio::main]
 async fn main() {
@@ -138,6 +139,9 @@ async fn create_pool_mode_app(
     api_key: &str,
     proxy_config: Option<http_client::ProxyConfig>,
 ) -> Router {
+    const COOLDOWN_SCAN_SECS: u64 = 15 * 60;
+    const EXHAUSTED_SCAN_SECS: u64 = 60 * 60;
+
     // 获取数据目录（默认 ./data）
     let data_dir = std::env::var("DATA_DIR")
         .map(std::path::PathBuf::from)
@@ -165,6 +169,40 @@ async fn create_pool_mode_app(
     // 从文件加载配额缓存
     if let Err(e) = pool.load_usage_cache().await {
         tracing::warn!("加载配额缓存失败: {}", e);
+    }
+
+    // 后台任务 A：每 15 分钟扫描冷却账号
+    {
+        let pool = pool.clone();
+        tokio::spawn(async move {
+            let mut ticker = interval(Duration::from_secs(COOLDOWN_SCAN_SECS));
+            loop {
+                ticker.tick().await;
+                let recovered = pool.recover_cooldown_accounts().await;
+                if recovered > 0 {
+                    tracing::info!("冷却扫描完成，恢复 {} 个账号", recovered);
+                }
+            }
+        });
+    }
+
+    // 后台任务 B：每 1 小时扫描配额耗尽账号
+    {
+        let pool = pool.clone();
+        tokio::spawn(async move {
+            let mut ticker = interval(Duration::from_secs(EXHAUSTED_SCAN_SECS));
+            loop {
+                ticker.tick().await;
+                let (recovered, scanned) = pool.refresh_exhausted_accounts().await;
+                if scanned > 0 {
+                    tracing::info!(
+                        "配额耗尽扫描完成，检查 {} 个账号，恢复 {} 个",
+                        scanned,
+                        recovered
+                    );
+                }
+            }
+        });
     }
 
     // 尝试从环境变量加载初始账号（如果池中没有账号）

@@ -35,7 +35,7 @@ An Anthropic Claude API compatible proxy service written in Rust, converting Ant
 - **Web Management Panel**: Visual account management and status monitoring
 - **Quota Management**: Real-time account quota viewing
 - **Request Logging**: Request history and statistics
-- **Auto Error Handling**: Auto cooldown on rate limiting, auto disable on suspension
+- **Auto Error Handling**: Auto cooldown on rate limiting, auto exhausted state on monthly quota limits, auto disable on suspension
 
 ## Supported API Endpoints
 
@@ -145,7 +145,7 @@ Runs with a single credentials file, suitable for personal use.
 Enable by setting `POOL_MODE=true`, supports:
 - Multi-account management
 - Round-robin / Random / Least-used load balancing strategies
-- Account status tracking (Active/Cooldown/Invalid/Disabled)
+- Account status tracking (Active/Cooldown/Exhausted/Disabled)
 - Web management panel (visit `http://service-address/`)
 - Persistent account storage
 
@@ -203,7 +203,7 @@ In account pool mode, visit the service root path to open the management panel (
 - 👥 **Account Management** - Add, import, enable/disable, delete accounts
 - 📈 **Quota Viewing** - Real-time refresh of account remaining quota and usage progress
 - 📝 **Request Logs** - View last 100 request history (persists last 1000 entries)
-- 🔄 **Load Balancing** - Switch between round-robin/random/least-used strategies
+- 🔄 **Load Balancing** - Switch between round-robin/random/least-used/sequential-exhaust strategies
 - 🔐 **Security Authentication** - API key protected management panel
 
 ### Quota Management
@@ -218,8 +218,14 @@ Quota progress bar colors:
 ### Auto Error Handling
 
 - **429 Rate Limit Error**: Account automatically enters 5-minute cooldown
-- **403 Suspension Error**: Account automatically marked as invalid
+- **402 Monthly Quota Exhausted**: Account automatically marked as exhausted (hourly recovery scan)
+- **403 Suspension Error**: Account automatically disabled
 - Error counts update in real-time for troubleshooting problematic accounts
+
+### Tiered Recovery Scans
+
+- **Cooldown accounts**: scanned every 15 minutes and auto-recovered when ready
+- **Exhausted accounts**: scanned every 1 hour and auto-recovered after quota returns
 
 ### Data Persistence
 

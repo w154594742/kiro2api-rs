@@ -532,6 +532,12 @@
             background: rgba(255, 209, 102, 0.12);
         }
 
+        .status-exhausted {
+            color: #ff9f43;
+            border-color: rgba(255, 159, 67, 0.65);
+            background: rgba(255, 159, 67, 0.12);
+        }
+
         .status-invalid {
             color: var(--err);
             border-color: rgba(255, 107, 107, 0.65);
@@ -882,7 +888,7 @@
                     <div class="value" id="stat-cooldown">-</div>
                 </div>
                 <div class="stat-card error">
-                    <div class="label">Invalid</div>
+                    <div class="label">Exhausted</div>
                     <div class="value" id="stat-invalid">-</div>
                 </div>
                 <div class="stat-card">
@@ -919,6 +925,7 @@
                     <option value="round-robin">Round Robin</option>
                     <option value="random">Random</option>
                     <option value="least-used">Least Used</option>
+                    <option value="sequential-exhaust">Sequential Exhaust</option>
                 </select>
                 <button class="btn btn-secondary" onclick="refreshManual(this)">Refresh</button>
             </div>
@@ -1137,6 +1144,7 @@
             const key = String(status || '').toLowerCase();
             if (key === 'active') return '[ACTIVE]';
             if (key === 'cooldown') return '[COOLDOWN]';
+            if (key === 'exhausted') return '[EXHAUSTED]';
             if (key === 'invalid') return '[INVALID]';
             if (key === 'disabled') return '[DISABLED]';
             return `[${key || 'UNKNOWN'}]`;
@@ -1148,7 +1156,7 @@
                 document.getElementById('stat-uptime').textContent = formatUptime(data.uptime_secs);
                 document.getElementById('stat-active').textContent = data.pool.active;
                 document.getElementById('stat-cooldown').textContent = data.pool.cooldown;
-                document.getElementById('stat-invalid').textContent = data.pool.invalid;
+                document.getElementById('stat-invalid').textContent = (data.pool.exhausted ?? data.pool.invalid ?? 0);
                 document.getElementById('stat-requests').textContent = formatNumber(data.pool.total_requests);
                 document.getElementById('stat-errors').textContent = data.pool.total_errors;
             } catch (e) {

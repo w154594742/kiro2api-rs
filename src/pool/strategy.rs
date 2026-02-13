@@ -13,6 +13,8 @@ pub enum SelectionStrategy {
     Random,
     /// 最少使用
     LeastUsed,
+    /// 依次使用，当前账号耗尽后再切到下一个
+    SequentialExhaust,
 }
 
 impl SelectionStrategy {
@@ -21,6 +23,20 @@ impl SelectionStrategy {
             Self::RoundRobin => "round-robin",
             Self::Random => "random",
             Self::LeastUsed => "least-used",
+            Self::SequentialExhaust => "sequential-exhaust",
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SelectionStrategy;
+
+    #[test]
+    fn test_sequential_exhaust_as_str() {
+        assert_eq!(
+            SelectionStrategy::SequentialExhaust.as_str(),
+            "sequential-exhaust"
+        );
     }
 }
